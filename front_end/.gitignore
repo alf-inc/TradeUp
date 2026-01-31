@@ -1,0 +1,39 @@
+# Node / package manager
+node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build output
+dist/
+build/
+.out/
+
+# Vite cache
+.vite/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editor junk
+.vscode/
+.idea/
+*.swp
+
+# Logs
+logs/
+*.log
+
+# Optional: large assets (if any)
+*.zip
+*.rar
+*.mp4
+*.mov
+*.psd
+*.fig
