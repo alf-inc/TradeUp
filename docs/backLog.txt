@@ -1,0 +1,51 @@
+US1: User Authentication      Persona: Efficient-of-access User	Story points: 2     Priority: 1
+Description:  As a user who prioritizes ease of access, I want to sign up and log in quickly with 
+minimal steps, so that I can start trading items without spending too much time and effort.
+
+US2: Profile customization    	Persona: Alice 	Story points: 2  		Priority: 1
+Description: As a student trader, I want to set up my profiles with only a photo and a short bio, 
+so that I can begin trading without filling out long information or going through complicated processes.
+
+US3: View Profile and Posted Items    Persona: Alice	Story points: 2  	Priority: 2
+Description: As a student trader, I want to view my profile and the items I have posted in one place, 
+so that I can easily check what is still available and manage my trades without wasting time.
+
+US4: Post an Item for Trade   Persona: Casual User	Story points: 2		Priority: 2
+Description: As a casual user, I want to post an item for trade using photos, a category, and a 
+short description, so that I can make my item available and start trading easily.
+
+US5: Browse Item Feed   Persona: Daniel	Story points: 2  		Priority: 2
+Description: As an early-career trader, I want to browse a recommendation-style feed of items 
+that are posted by other users, so that I can see a variety of options and find more items that appeal to me.
+
+US6: Like or Skip Items   Persona: Alice	Story points: 2  		Priority: 2     
+Description: As a student trader, I want to be able to like or skip items with a 
+single action, so that I don’t need to message every user that I am interested or not interested in trading with them.
+
+US7: View Liked items    Persona: Daniel	Story points: 2  		Priority: 2
+Description: As an early-career trader, I want to view the items I have liked, so 
+I can take my time comparing the options and decide which one is the best trade I want to engage in. 
+
+US8: View Matches     	Persona: Daniel	     Story points: 4 		Priority: 2
+Description: As an early-career trader, I want to see a list of users with mutual interests, 
+so I can find potential trades and get better offers.
+
+US9: Filter items by Location	       Persona: Local-focused User     Story points: 2	       Priority: 2
+Description: As a user who prefers local trades, I want to filter items by location, 
+so that I can focus only on trades that are convenient to complete.
+
+US10:  Search Items         Persona: Target-focused User	Story points: 2		Priority: 2
+Description: As a target-focused user, I want to search for items by keywords, 
+so I can find a particular item quickly and precisely.
+
+US11:  Open Chat         Persona: Marketplace User	       Story points: 5 		Priority: 2
+Description: As a marketplace user, I want to be able to initiate a text chat with potential 
+matches to organize a trade, so that I can keep up with details such as location and timing.
+
+US12:  Close Chat         Persona: Marketplace User	       Story points: 2 		Priority: 2
+Description: As a marketplace user, I want to be able to close a chat with another user, 
+so I can end a trade conversation either after the trade is completed or at any other time to cancel the trade.
+
+US13:  Moderation          Persona: Platform Administrator       Story points: 3            Priority: 1
+Description: As a platform administrator, I want items to be moderated to prevent illegal 
+or prohibited content, so the platform remains safe and users who violate rules can be restricted or banned.
