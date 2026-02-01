@@ -2,6 +2,8 @@ US1: User Authentication      Persona: Efficient-of-access User	Story points: 2 
 Description:  As a user who prioritizes ease of access, I want to sign up and log in quickly with 
 minimal steps, so that I can start trading items without spending too much time and effort.
 
+Assigned: Gore      Completed: Gore         MergedBy: Ryan          Time taken: 2 hours
+
 US2: Profile customization    	Persona: Alice 	Story points: 2  		Priority: 1
 Description: As a student trader, I want to set up my profiles with only a photo and a short bio, 
 so that I can begin trading without filling out long information or going through complicated processes.
