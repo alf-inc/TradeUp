@@ -4,19 +4,91 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "./ui/card";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+} from "firebase/auth";
+import { auth } from "../firebase/firebase";
 
 interface LoginRegisterScreenProps {
   onLogin: () => void;
 }
 
-export function LoginRegisterScreen( { onLogin }: LoginRegisterScreenProps ) {
+export function LoginRegisterScreen({ onLogin }: LoginRegisterScreenProps) {
+  const [mode, setMode] = useState<"login" | "register">("login");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    onLogin();
+    setError(null);
+
+    if (mode === "register" && password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      if (mode === "register") {
+        await createUserWithEmailAndPassword(auth, email, password);
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+
+      onLogin();
+    } catch (err: any) {
+      setError(err?.message ?? "Authentication failed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    setError(null);
+    setMessage(null);
+
+    if (!email.trim()) {
+      setError("Enter your email first, then click Forgot password.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await sendPasswordResetEmail(auth, email.trim());
+      setMessage("Password reset email sent. Check your inbox (and spam).");
+    } catch (e: any) {
+      const code = e?.code as string | undefined;
+
+      if (code === "auth/user-not-found") {
+        setError("No account found with that email.");
+      } else if (code === "auth/invalid-email") {
+        setError("That email address looks invalid.");
+      } else if (code === "auth/too-many-requests") {
+        setError("Too many attempts. Try again later.");
+      } else {
+        setError("Could not send reset email. Try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -33,13 +105,21 @@ export function LoginRegisterScreen( { onLogin }: LoginRegisterScreenProps ) {
             Sign in to your account or create a new one
           </CardDescription>
         </CardHeader>
+
         <CardContent>
-          <Tabs defaultValue="login" className="w-full">
+          {error && <p className="text-sm text-red-600 mb-2">{error}</p>}
+          {message && <p className="text-sm text-green-600 mb-2">{message}</p>}
+
+          <Tabs
+            value={mode}
+            onValueChange={(v) => setMode(v as "login" | "register")}
+            className="w-full"
+          >
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="register">Register</TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="login">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
@@ -52,9 +132,12 @@ export function LoginRegisterScreen( { onLogin }: LoginRegisterScreenProps ) {
                       placeholder="name@example.com"
                       className="pl-10"
                       required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                     />
                   </div>
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="login-password">Password</Label>
                   <div className="relative">
@@ -65,6 +148,8 @@ export function LoginRegisterScreen( { onLogin }: LoginRegisterScreenProps ) {
                       placeholder="••••••••"
                       className="pl-10 pr-10"
                       required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                     />
                     <button
                       type="button"
@@ -79,21 +164,28 @@ export function LoginRegisterScreen( { onLogin }: LoginRegisterScreenProps ) {
                     </button>
                   </div>
                 </div>
+
                 <div className="flex items-center justify-between">
                   <label className="flex items-center space-x-2">
                     <input type="checkbox" className="rounded" />
                     <span className="text-sm text-gray-600">Remember me</span>
                   </label>
-                  <a href="#" className="text-sm text-indigo-600 hover:underline">
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    className="text-sm text-indigo-600 hover:underline"
+                    disabled={loading}
+                  >
                     Forgot password?
-                  </a>
+                  </button>
                 </div>
-                <Button type="submit" className="w-full">
-                  Sign In
+
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? "Loading..." : "Sign In"}
                 </Button>
               </form>
             </TabsContent>
-            
+
             <TabsContent value="register">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
@@ -109,6 +201,7 @@ export function LoginRegisterScreen( { onLogin }: LoginRegisterScreenProps ) {
                     />
                   </div>
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="register-email">Email</Label>
                   <div className="relative">
@@ -119,9 +212,12 @@ export function LoginRegisterScreen( { onLogin }: LoginRegisterScreenProps ) {
                       placeholder="name@example.com"
                       className="pl-10"
                       required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                     />
                   </div>
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="register-password">Password</Label>
                   <div className="relative">
@@ -132,6 +228,8 @@ export function LoginRegisterScreen( { onLogin }: LoginRegisterScreenProps ) {
                       placeholder="••••••••"
                       className="pl-10 pr-10"
                       required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                     />
                     <button
                       type="button"
@@ -146,6 +244,7 @@ export function LoginRegisterScreen( { onLogin }: LoginRegisterScreenProps ) {
                     </button>
                   </div>
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="confirm-password">Confirm Password</Label>
                   <div className="relative">
@@ -156,10 +255,14 @@ export function LoginRegisterScreen( { onLogin }: LoginRegisterScreenProps ) {
                       placeholder="••••••••"
                       className="pl-10 pr-10"
                       required
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
                     />
                     <button
                       type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      onClick={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
                       className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
                     >
                       {showConfirmPassword ? (
@@ -170,6 +273,7 @@ export function LoginRegisterScreen( { onLogin }: LoginRegisterScreenProps ) {
                     </button>
                   </div>
                 </div>
+
                 <div className="flex items-start space-x-2">
                   <input type="checkbox" className="mt-1 rounded" required />
                   <span className="text-sm text-gray-600">
@@ -183,13 +287,15 @@ export function LoginRegisterScreen( { onLogin }: LoginRegisterScreenProps ) {
                     </a>
                   </span>
                 </div>
-                <Button type="submit" className="w-full">
-                  Create Account
+
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? "Loading..." : "Create Account"}
                 </Button>
               </form>
             </TabsContent>
           </Tabs>
         </CardContent>
+
         <CardFooter className="flex justify-center border-t pt-4">
           <p className="text-sm text-gray-600">
             Secure login powered by encryption
@@ -199,3 +305,4 @@ export function LoginRegisterScreen( { onLogin }: LoginRegisterScreenProps ) {
     </div>
   );
 }
+
