@@ -1,7 +1,7 @@
 import { useState } from 'react';
-// import { SwipeView } from './components/SwipeView';
+import { SwipeView } from './components/SwipeView';
 import { ProfileView } from './components/ProfileView';
-// import { MatchesView } from './components/MatchesView';
+import { MatchesView } from './components/MatchesView';
 import { Heart, User, MessageCircle } from 'lucide-react';
 
 export default function App() {
@@ -19,8 +19,8 @@ export default function App() {
 
         {/* Main Content */}
         <main className="flex-1 overflow-hidden">
-          {/* {activeView === 'swipe' && <SwipeView />} */}
-          {/* {activeView === 'matches' && <MatchesView />} */}
+          {activeView === 'swipe' && <SwipeView />}
+          {activeView === 'matches' && <MatchesView />}
           {activeView === 'profile' && <ProfileView />}
         </main>
 
