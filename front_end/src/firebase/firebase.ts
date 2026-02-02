@@ -1,6 +1,8 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getAnalytics, isSupported } from "firebase/analytics";
+import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 // Firebase configuration
 const firebaseConfig = {
@@ -18,6 +20,8 @@ const app = initializeApp(firebaseConfig);
 
 // Firebase Auth (used in your LoginRegisterScreen)
 export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const storage = getStorage(app);
 
 // Firebase Analytics (optional, safe check)
 // isSupported().then((supported) => {
@@ -25,3 +29,38 @@ export const auth = getAuth(app);
 //     getAnalytics(app);
 //   }
 // });
+
+
+export type UserProfile = {
+  bio?: string;
+  photoURL?: string;
+};
+
+// Getting user profile
+export async function getMyProfile(uid: string): Promise<UserProfile> {
+  const snap = await getDoc(doc(db, "users", uid));
+  return snap.exists() ? (snap.data() as UserProfile) : {};
+}
+
+
+// Saving user bio
+export async function saveMyBio(uid: string, bio: string) {
+  await setDoc(doc(db, "users", uid), { bio }, { merge: true });
+}
+
+
+// Upload user profile photo and return its download URL
+export async function uploadMyProfilePhoto(
+  uid: string,
+  file: File
+): Promise<string> {
+  const fileRef = ref(storage, `profilePhotos/${uid}`);
+  await uploadBytes(fileRef, file);
+  return await getDownloadURL(fileRef);
+}
+
+
+// Save user profile (bio and photoURL)
+export async function saveMyProfile(uid: string, profile: UserProfile) {
+  await setDoc(doc(db, "users", uid), profile, { merge: true });
+}
