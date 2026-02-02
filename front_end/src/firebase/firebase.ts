@@ -20,8 +20,8 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 // Firebase Analytics (optional, safe check)
-isSupported().then((supported) => {
-  if (supported) {
-    getAnalytics(app);
-  }
-});
+// isSupported().then((supported) => {
+//   if (supported) {
+//     getAnalytics(app);
+//   }
+// });
