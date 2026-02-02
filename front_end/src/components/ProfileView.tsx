@@ -6,12 +6,15 @@ import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Button } from "./ui/button";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth, getMyProfile, saveMyProfile } from "../firebase/firebase";
+import { auth, getMyProfile, saveMyProfile, saveNewItem, getUserItems, deleteItem } from "../firebase/firebase";
+import { Item } from "../types";
 
 export function ProfileView() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [items, setItems] = useState(currentUser.items);
+
+  // const [items, setItems] = useState(currentUser.items);
+  const [items, setItems] = useState<any[]>([]);
 
   // Auth state
   const [uid, setUid] = useState<string | null>(null);
@@ -62,14 +65,27 @@ export function ProfileView() {
         }));
         setEditBio(bio);
         setEditPhotoURL(photoURL);
+
+        // Load user's items
+        const userItems = await getUserItems(uid);
+        setItems(userItems);
+      } catch (error) {
+        console.error("Error loading profile/items:", error); // If error occurs when retrieving user items
       } finally {
         setLoadingProfile(false);
       }
     })();
   }, [uid]);
 
-  const handleDeleteItem = (itemId: string) => {
-    setItems(items.filter((item) => item.id !== itemId));
+  const handleDeleteItem = async (itemId: string) => {
+    if (!confirm("Are you sure you want to delete this item?")) return;
+    try {
+      await deleteItem(itemId); // Delete from Firestore
+      setItems(items.filter((item) => item.id !== itemId)); // Update UI
+    } catch (e) {
+      console.error("Failed to delete item", e);
+      alert("Failed to delete item");
+    }
   };
 
   const handleCancelEdit = () => {
@@ -344,9 +360,27 @@ export function ProfileView() {
       {isAddModalOpen && (
         <AddItemModal
           onClose={() => setIsAddModalOpen(false)}
-          onAdd={(newItem) => {
-            setItems([...items, newItem]);
-            setIsAddModalOpen(false);
+          onAdd={async (partialItem) => {
+            try {
+              // Construct the full item for Firestore
+              const newItemData = {
+                ...partialItem,
+                userId: uid,
+                userName: profile.name,
+                userAvatar: profile.photoURL || currentUser.avatar,
+                createdAt: Date.now(),
+              };
+              
+              // Save to Firestore
+              const newId = await saveNewItem(newItemData);
+              
+              // Update local state (Optimistic update or using the returned ID)
+              setItems([...items, { ...newItemData, id: newId }]);
+              setIsAddModalOpen(false);
+            } catch (error) {
+              console.error("Failed to add item:", error);
+              alert("Could not save item.");
+            }
           }}
         />
       )}

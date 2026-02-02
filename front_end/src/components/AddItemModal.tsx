@@ -5,7 +5,8 @@ import { currentUser } from '../data/mockData';
 
 interface AddItemModalProps {
   onClose: () => void;
-  onAdd: (item: Item) => void;
+  // onAdd: (item: Item) => void;
+  onAdd: (itemData: Omit<Item, "id" | "userId" | "userName" | "userAvatar">) => void;
 }
 
 export function AddItemModal({ onClose, onAdd }: AddItemModalProps) {
@@ -45,19 +46,26 @@ export function AddItemModal({ onClose, onAdd }: AddItemModalProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const newItem: Item = {
-      id: `my-item-${Date.now()}`,
+    // MOCK ITEM CREATION
+    // const newItem: Item = {
+    //   id: `my-item-${Date.now()}`,
+    //   title: formData.title,
+    //   description: formData.description,
+    //   imageUrl: formData.imageUrl || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&h=600&fit=crop',
+    //   category: formData.category,
+    //   condition: formData.condition,
+    //   userId: currentUser.id,
+    //   userName: currentUser.name,
+    //   userAvatar: currentUser.avatar,
+    // };
+    onAdd({
       title: formData.title,
       description: formData.description,
+      // Use the fallback image if empty
       imageUrl: formData.imageUrl || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&h=600&fit=crop',
       category: formData.category,
       condition: formData.condition,
-      userId: currentUser.id,
-      userName: currentUser.name,
-      userAvatar: currentUser.avatar,
-    };
-
-    onAdd(newItem);
+    });
   };
 
   return (

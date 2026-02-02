@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getAnalytics, isSupported } from "firebase/analytics";
-import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
+import { getFirestore, doc, getDoc, setDoc, collection, addDoc, query, where, getDocs, deleteDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 // Firebase configuration
@@ -63,4 +63,40 @@ export async function uploadMyProfilePhoto(
 // Save user profile (bio and photoURL)
 export async function saveMyProfile(uid: string, profile: UserProfile) {
   await setDoc(doc(db, "users", uid), profile, { merge: true });
+}
+
+// Item type for item data
+export interface ItemData {
+  title: string;
+  description: string;
+  imageUrl: string;
+  category: string;
+  condition: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  createdAt: number; 
+}
+
+// Save new item
+export async function saveNewItem(item: ItemData) {
+  const docRef = await addDoc(collection(db, "items"), item);
+  return docRef.id;
+}
+
+// Get items for a specific user from userId
+export async function getUserItems(uid: string) {
+  const q = query(collection(db, "items"), where("userId", "==", uid));
+  const querySnapshot = await getDocs(q);
+  
+  // Converts Firestore docs into item format
+  return querySnapshot.docs.map((doc) => ({
+    id: doc.id, 
+    ...doc.data() 
+  }));
+}
+
+// Delete an item given its item ID
+export async function deleteItem(itemId: string) {
+  await deleteDoc(doc(db, "items", itemId));
 }
