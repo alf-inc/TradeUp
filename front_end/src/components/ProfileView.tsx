@@ -31,7 +31,7 @@ export function ProfileView() {
     photoURL: string;
     bio: string;
   }>({
-    name: auth.currentUser?.displayName || currentUser.name || "My Profile",
+    name: auth.currentUser?.displayName || "My Profile" || currentUser.name ,
     photoURL: "",
     bio: "",
   });
