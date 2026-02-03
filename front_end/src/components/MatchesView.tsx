@@ -49,7 +49,7 @@ export function MatchesView() {
                     <p className="text-xs text-gray-500 mb-2">Your Item</p>
                     <div className="relative">
                       <img
-                        src={match.item.imageUrl}
+                        src={match.item.imageUrls[0]}
                         alt={match.item.title}
                         className="w-full h-32 object-cover rounded-lg"
                       />
@@ -65,7 +65,7 @@ export function MatchesView() {
                     <p className="text-xs text-gray-500 mb-2">Trade For</p>
                     <div className="relative">
                       <img
-                        src={match.matchedWith.imageUrl}
+                        src={match.matchedWith.imageUrls[0]}
                         alt={match.matchedWith.title}
                         className="w-full h-32 object-cover rounded-lg"
                       />

@@ -69,7 +69,7 @@ export async function saveMyProfile(uid: string, profile: UserProfile) {
 export interface ItemData {
   title: string;
   description: string;
-  imageUrl: string;
+  imageUrls: string[];
   category: string;
   condition: string;
   userId: string;
