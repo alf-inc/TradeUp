@@ -2,13 +2,13 @@ US1: User Authentication      Persona: Efficient-of-access User	Story points: 2 
 Description:  As a user who prioritizes ease of access, I want to sign up and log in quickly with 
 minimal steps, so that I can start trading items without spending too much time and effort.
 
-Assigned: Gore      Completed: Gore         MergedBy: Ryan          Time taken: 2 hours
+Assigned: Gore      Completed: Gore Merged By: Ryan      Time taken: 2 hours
 
 US2: Profile customization    	Persona: Alice 	Story points: 2  		Priority: 1
 Description: As a student trader, I want to set up my profiles with only a photo and a short bio, 
 so that I can begin trading without filling out long information or going through complicated processes.
 
-Assigned: Xuanyuan(Andy) Wang   Completed:Andy   MergedBy:         Time taken: 3.5 hours
+Assigned: Xuanyuan(Andy) Wang   Completed:Andy   Merged By: Gore     Time taken: 3.5 hours
 
 US3: View Profile and Posted Items    Persona: Alice	Story points: 2  	Priority: 2
 Description: As a student trader, I want to view my profile and the items I have posted in one place, 
@@ -21,6 +21,8 @@ short description, so that I can make my item available and start trading easily
 US5: Browse Item Feed   Persona: Daniel	Story points: 2  		Priority: 2
 Description: As an early-career trader, I want to browse a recommendation-style feed of items 
 that are posted by other users, so that I can see a variety of options and find more items that appeal to me.
+
+Assigned: Alvin     Completed: Alvin    Merged By: Ray      Time taken: 2.5 hours
 
 US6: Like or Skip Items   Persona: Alice	Story points: 2  		Priority: 2     
 Description: As a student trader, I want to be able to like or skip items with a 

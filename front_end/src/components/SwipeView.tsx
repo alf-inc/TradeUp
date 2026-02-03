@@ -1,45 +1,40 @@
 import { useState, useRef, useEffect } from 'react';
 import { availableItems } from '../data/mockData';
 import { Item } from '../types';
-import { X, Heart, RotateCcw, Package } from 'lucide-react';
+import { Heart, Package, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export function SwipeView() {
   const [items, setItems] = useState<Item[]>(availableItems);
+  const [order, setOrder] = useState<number[]>(() => buildRandomOrder(availableItems));
   const [currentIndex, setCurrentIndex] = useState(0);
   const [likedItems, setLikedItems] = useState<string[]>([]);
+  const [imageTrackById, setImageTrackById] = useState<Record<string, number>>({});
+  const [imageNoTransitionById, setImageNoTransitionById] = useState<Record<string, boolean>>({});
+  const [imageTransitioningById, setImageTransitioningById] = useState<Record<string, boolean>>({});
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const currentItem = items[currentIndex];
-  const hasMoreItems = currentIndex < items.length;
+  const orderedItems = order.map((index) => items[index]);
+  const currentItem = orderedItems[currentIndex];
+  const isCurrentLiked = currentItem ? likedItems.includes(currentItem.id) : false;
+  const getTrackIndex = (itemId: string, total: number) => {
+    const raw = imageTrackById[itemId] ?? 1;
+    if (!Number.isFinite(raw)) return 1;
+    if (raw < 0) return 0;
+    if (raw > total + 1) return total + 1;
+    return raw;
+  };
 
   const handleLike = () => {
     if (currentItem) {
-      setLikedItems([...likedItems, currentItem.id]);
-    }
-    handleNext();
-  };
-
-  const handlePass = () => {
-    handleNext();
-  };
-
-  const handleNext = () => {
-    if (currentIndex < items.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    } else {
-      setCurrentIndex(items.length); // Trigger "no more items" state
+      setLikedItems((prev) =>
+        prev.includes(currentItem.id)
+          ? prev.filter((id) => id !== currentItem.id)
+          : [...prev, currentItem.id]
+      );
     }
   };
 
-  const handleUndo = () => {
-    if (currentIndex > 0) {
-      const prevIndex = currentIndex - 1;
-      setCurrentIndex(prevIndex);
-      if (likedItems.includes(items[prevIndex].id)) {
-        setLikedItems(likedItems.filter(id => id !== items[prevIndex].id));
-      }
-    }
-  };
+
 
   // Handle scroll to change items
   useEffect(() => {
@@ -53,7 +48,7 @@ export function SwipeView() {
         const scrollTop = container.scrollTop;
         const itemHeight = container.clientHeight;
         const newIndex = Math.round(scrollTop / itemHeight);
-        if (newIndex !== currentIndex && newIndex < items.length) {
+        if (newIndex !== currentIndex && newIndex < orderedItems.length) {
           setCurrentIndex(newIndex);
         }
       }, 50);
@@ -61,29 +56,41 @@ export function SwipeView() {
 
     container.addEventListener('scroll', handleScroll);
     return () => container.removeEventListener('scroll', handleScroll);
-  }, [currentIndex, items.length]);
+  }, [currentIndex, orderedItems.length]);
 
-  if (!hasMoreItems) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center p-6 text-center">
-        <div className="bg-white rounded-2xl p-8 shadow-lg max-w-sm">
-          <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Heart className="w-8 h-8 text-purple-600" />
-          </div>
-          <h2 className="text-2xl font-bold mb-2">No more items!</h2>
-          <p className="text-gray-600 mb-6">
-            You've seen all available items. Check back later for new items or manage your matches!
-          </p>
-          <button
-            onClick={() => setCurrentIndex(0)}
-            className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-full font-medium hover:shadow-lg transition-shadow"
-          >
-            Start Over
-          </button>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) {
+        return;
+      }
+
+      if (!currentItem || currentItem.imageUrls.length <= 1) return;
+      if (imageTransitioningById[currentItem.id]) return;
+
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        setImageTransitioningById((prev) => ({ ...prev, [currentItem.id]: true }));
+        setImageTrackById((prev) => {
+          const current = prev[currentItem.id] ?? 1;
+          const delta = event.key === 'ArrowRight' ? 1 : -1;
+          const nextIndex = current + delta;
+          return { ...prev, [currentItem.id]: nextIndex };
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentItem]);
+
+  useEffect(() => {
+    if (items.length <= 1 || order.length === 0) return;
+
+    if (currentIndex >= order.length - 2) {
+      setOrder((prev) => appendRandomOrder(items, prev));
+    }
+  }, [currentIndex, items, order.length]);
 
   return (
     <div className="h-full relative">
@@ -93,22 +100,131 @@ export function SwipeView() {
         className="h-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
-        {items.map((item, index) => (
+        {orderedItems.map((item, index) => (
           <div
             key={item.id}
             className="h-full snap-start snap-always relative flex items-center justify-center"
           >
             {/* Item Card */}
-            <div className="w-full h-full relative">
-              {/* Image */}
-              <img
-                src={item.imageUrl}
-                alt={item.title}
-                className="w-full h-full object-cover"
-              />
+            <div className="w-full h-full relative rounded-2xl overflow-hidden">
+              {/* Image Slider */}
+              <div className="w-full h-full overflow-hidden">
+                <div
+                  className={`flex h-full ${
+                    imageNoTransitionById[item.id]
+                      ? 'transition-none'
+                      : 'transition-transform duration-300 ease-out'
+                  }`}
+                  style={{
+                    transform: `translateX(-${getTrackIndex(item.id, item.imageUrls.length) * 100}%)`,
+                  }}
+                  onTransitionEnd={(event) => {
+                    if (event.currentTarget !== event.target) return;
+
+                    const total = item.imageUrls.length;
+                    if (total <= 1) return;
+
+                    const trackIndex = getTrackIndex(item.id, total);
+                    if (trackIndex === 0) {
+                      setImageNoTransitionById((prev) => ({ ...prev, [item.id]: true }));
+                      setImageTrackById((prev) => ({ ...prev, [item.id]: total }));
+                      requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                          setImageNoTransitionById((prev) => ({ ...prev, [item.id]: false }));
+                          setImageTransitioningById((prev) => ({ ...prev, [item.id]: false }));
+                        });
+                      });
+                      return;
+                    }
+
+                    if (trackIndex === total + 1) {
+                      setImageNoTransitionById((prev) => ({ ...prev, [item.id]: true }));
+                      setImageTrackById((prev) => ({ ...prev, [item.id]: 1 }));
+                      requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                          setImageNoTransitionById((prev) => ({ ...prev, [item.id]: false }));
+                          setImageTransitioningById((prev) => ({ ...prev, [item.id]: false }));
+                        });
+                      });
+                      return;
+                    }
+
+                    setImageTransitioningById((prev) => ({ ...prev, [item.id]: false }));
+                  }}
+                >
+                  {[item.imageUrls[item.imageUrls.length - 1], ...item.imageUrls, item.imageUrls[0]].map((url, imageIndex) => (
+                    <img
+                      key={`${item.id}-${imageIndex}`}
+                      src={url}
+                      alt={`${item.title} ${imageIndex + 1}`}
+                      className="w-full h-full object-cover flex-shrink-0"
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Image Indicators */}
+              {item.imageUrls.length > 1 && (
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10">
+                  {item.imageUrls.map((_, dotIndex) => {
+                    const total = item.imageUrls.length;
+                    const activeIndex = ((getTrackIndex(item.id, total) - 1 + total) % total);
+                    const isActive = dotIndex === activeIndex;
+
+                    return (
+                      <span
+                        key={`${item.id}-dot-${dotIndex}`}
+                        className={`rounded-full transition-all ${
+                          isActive
+                            ? 'bg-gray-200 w-2.5 h-2.5'
+                            : 'bg-gray-500/70 w-2 h-2'
+                        }`}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Image Controls */}
+              {item.imageUrls.length > 1 && (
+                <>
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (imageTransitioningById[item.id]) return;
+                      setImageTransitioningById((prev) => ({ ...prev, [item.id]: true }));
+                      setImageTrackById((prev) => {
+                        const current = prev[item.id] ?? 1;
+                        const nextIndex = current - 1;
+                        return { ...prev, [item.id]: nextIndex };
+                      });
+                    }}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/30 backdrop-blur-md text-white flex items-center justify-center shadow-lg z-10 transition-all hover:bg-black/80 hover:backdrop-blur-0 hover:scale-110"
+                    aria-label="Previous image"
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </button>
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (imageTransitioningById[item.id]) return;
+                      setImageTransitioningById((prev) => ({ ...prev, [item.id]: true }));
+                      setImageTrackById((prev) => {
+                        const current = prev[item.id] ?? 1;
+                        const nextIndex = current + 1;
+                        return { ...prev, [item.id]: nextIndex };
+                      });
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/30 backdrop-blur-md text-white flex items-center justify-center shadow-lg z-10 transition-all hover:bg-black/80 hover:backdrop-blur-0 hover:scale-110"
+                    aria-label="Next image"
+                  >
+                    <ChevronRight className="h-6 w-6" />
+                  </button>
+                </>
+              )}
               
               {/* Gradient Overlays */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40 pointer-events-none" />
               
               {/* Top Info */}
               <div className="absolute top-4 left-4 right-20">
@@ -116,36 +232,32 @@ export function SwipeView() {
                   <img
                     src={item.userAvatar}
                     alt={item.userName}
-                    className="w-12 h-12 rounded-full object-cover border-2 border-white"
+                    className="w-12 h-12 rounded-full object-cover"
                   />
                   <div className="text-white">
                     <p className="font-bold">{item.userName}</p>
-                    <p className="text-sm text-white/80">Wants to trade</p>
+                    {/* In future cases, set up if user wants to trade or sell for cash etc. 
+                      as of now, assume user always wants to trade (since this is the main idea of the app)
+                    */}
+                    {/* <p className="text-sm text-white/80">Wants to trade</p> */}
                   </div>
                 </div>
               </div>
 
-              {/* Category Badge */}
-              <div className="absolute top-4 right-20 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-sm font-medium">
-                {item.category}
-              </div>
-              
               {/* Bottom Info */}
-              <div className="absolute bottom-20 left-4 right-20 text-white">
+              <div className="absolute bottom-5 left-4 right-20 text-white">
                 <h3 className="text-2xl font-bold mb-2">{item.title}</h3>
                 <p className="text-white/90 text-sm mb-3 line-clamp-3">{item.description}</p>
                 
                 <div className="flex items-center gap-2">
+                  <div className="bg-white/90 text-gray-900 backdrop-blur-sm px-3 py-1.5 rounded-full text-sm font-medium">
+                    {item.category}
+                  </div>
                   <div className="flex items-center gap-1 bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full text-sm">
                     <Package className="w-4 h-4" />
                     <span className="capitalize">{item.condition}</span>
                   </div>
                 </div>
-              </div>
-
-              {/* Progress Indicator */}
-              <div className="absolute bottom-4 left-4 right-20 text-white/60 text-xs font-medium">
-                {index + 1} / {items.length}
               </div>
             </div>
           </div>
@@ -153,44 +265,49 @@ export function SwipeView() {
       </div>
 
       {/* Side Action Buttons - TikTok Style */}
-      <div className="absolute right-3 bottom-32 flex flex-col gap-4 z-10">
+      <div className="absolute right-3 bottom-15 flex flex-col gap-4 z-10">
         {/* Like Button */}
         <button
           onClick={handleLike}
-          className="w-14 h-14 bg-white/90 backdrop-blur-sm rounded-full shadow-lg flex flex-col items-center justify-center hover:scale-110 transition-transform group"
+          className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-full shadow-lg flex flex-col items-center justify-center hover:scale-110 transition-transform group"
+          
         >
           <Heart 
-            className="w-7 h-7 text-purple-600 group-hover:fill-purple-600 transition-all" 
+            className={`w-7 h-7 transition-all group-hover:text-red-500 group-hover:fill-red-500 ${
+              isCurrentLiked ? 'text-red-500 fill-red-500' : 'text-gray-400 fill-gray-400'
+            }`}
           />
         </button>
 
-        {/* Pass Button */}
-        <button
-          onClick={handlePass}
-          className="w-14 h-14 bg-white/90 backdrop-blur-sm rounded-full shadow-lg flex flex-col items-center justify-center hover:scale-110 transition-transform group"
-        >
-          <X className="w-7 h-7 text-red-500 group-hover:text-red-600 transition-colors" strokeWidth={2.5} />
-        </button>
-
-        {/* Undo Button */}
-        <button
-          onClick={handleUndo}
-          disabled={currentIndex === 0}
-          className="w-14 h-14 bg-white/90 backdrop-blur-sm rounded-full shadow-lg flex flex-col items-center justify-center hover:scale-110 transition-transform disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 group"
-        >
-          <RotateCcw className="w-6 h-6 text-gray-700 group-hover:text-gray-900 transition-colors" />
-        </button>
+        
       </div>
 
-      {/* Scroll hint (only show on first item) */}
-      {currentIndex === 0 && (
-        <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 animate-bounce pointer-events-none z-10">
-          <div className="bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full text-sm font-medium text-gray-700 shadow-lg">
-            Scroll to see more
-          </div>
-        </div>
-      )}
     </div>
   );
+}
+
+function buildRandomOrder(items: Item[], excludeId?: string | null) {
+  const indices = items.map((_, index) => index);
+
+  for (let i = indices.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+
+  if (excludeId && indices.length > 1 && items[indices[0]]?.id === excludeId) {
+    [indices[0], indices[1]] = [indices[1], indices[0]];
+  }
+
+  return indices;
+}
+
+function appendRandomOrder(items: Item[], currentOrder: number[]) {
+  if (items.length === 0) return currentOrder;
+
+  const lastIndex = currentOrder[currentOrder.length - 1];
+  const lastId = items[lastIndex]?.id;
+  const nextBatch = buildRandomOrder(items, lastId);
+
+  return [...currentOrder, ...nextBatch];
 }
 

@@ -4,7 +4,7 @@ export interface Item {
   id: string;
   title: string;
   description: string;
-  imageUrl: string;
+  imageUrls: string[];
   category: string;
   condition: Condition;
   userId: string;

@@ -305,7 +305,7 @@ export function ProfileView() {
                 >
                   <div className="flex gap-4">
                     <img
-                      src={item.imageUrl}
+                      src={item.imageUrls[0]}
                       alt={item.title}
                       className="w-32 h-32 object-cover"
                     />

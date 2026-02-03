@@ -49,7 +49,9 @@ export function AddItemModal({ onClose, onAdd }: AddItemModalProps) {
       id: `my-item-${Date.now()}`,
       title: formData.title,
       description: formData.description,
-      imageUrl: formData.imageUrl || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&h=600&fit=crop',
+      imageUrls: [
+        formData.imageUrl || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&h=600&fit=crop',
+      ],
       category: formData.category,
       condition: formData.condition,
       userId: currentUser.id,
