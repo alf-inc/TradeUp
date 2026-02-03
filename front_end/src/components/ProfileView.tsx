@@ -142,12 +142,12 @@ export function ProfileView() {
                 <img
                   src={profile.photoURL || currentUser.avatar}
                   alt={profile.name}
-                  className="w-20 h-20 rounded-full object-cover"
+                  className="w-24 h-24 rounded-full object-cover ring-4 ring-purple-100 shadow-sm"
                 />
               </div>
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-2xl font-bold">{profile.name}</h2>
+                  <h2 className="text-3xl font-extrabold tracking-tight">{profile.name}</h2>
                   <button
                     onClick={() => {
                       setEditBio(profile.bio);
@@ -160,7 +160,7 @@ export function ProfileView() {
                     <Edit2 className="w-4 h-4 text-gray-600" />
                   </button>
                 </div>
-                <p className="text-gray-600 italic">
+                <p className="text-gray-500">
                   {profile.bio || "No bio yet. Add one to help people know you better!"}
                 </p>
               </div>
@@ -253,19 +253,24 @@ export function ProfileView() {
 
           {/* Stats */}
           {!isEditingProfile && (
-            <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-purple-600">{items.length}</p>
-                <p className="text-sm text-gray-500">Items</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-purple-600">12</p>
-                <p className="text-sm text-gray-500">Matches</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-purple-600">8</p>
-                <p className="text-sm text-gray-500">Trades</p>
-              </div>
+            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-gray-100">
+              {[
+                { label: "Items", value: items.length },
+                { label: "Matches", value: 12 },
+                { label: "Trades", value: 8 },
+              ].map((stat) => (
+                <div
+                  key={stat.label}
+                  className="bg-gray-50 rounded-xl py-4 text-center shadow-sm hover:shadow-md transition"
+                >
+                  <p className="text-2xl font-bold text-purple-600">
+                    {stat.value}
+                  </p>
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    {stat.label}
+                  </p>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -276,7 +281,7 @@ export function ProfileView() {
             <h3 className="text-xl font-bold">My Items for Trade</h3>
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-full hover:shadow-lg transition-shadow"
+              className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-5 py-2 rounded-full hover:shadow-lg hover:scale-[1.02] transition"
             >
               <Plus className="w-4 h-4" />
               <span>Add Item</span>
@@ -301,7 +306,7 @@ export function ProfileView() {
               {items.map((item) => (
                 <div
                   key={item.id}
-                  className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
+                  className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl hover:scale-[1.01] transition-all"
                 >
                   <div className="flex gap-4">
                     <img
