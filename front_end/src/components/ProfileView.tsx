@@ -39,8 +39,7 @@ export function ProfileView() {
     photoURL: string;
     bio: string;
   }>({
-    // Fix: currentUser.name fallback should actually be reachable
-    name: auth.currentUser?.displayName || currentUser.name || "My Profile",
+    name: "My Profile",
     photoURL: "",
     bio: "",
   });
@@ -48,6 +47,7 @@ export function ProfileView() {
   // Edit form state (URL + Bio)
   const [editBio, setEditBio] = useState("");
   const [editPhotoURL, setEditPhotoURL] = useState("");
+  const [editName, setEditName] = useState("");
 
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -68,14 +68,18 @@ export function ProfileView() {
 
       try {
         const p = await getMyProfile(uid);
+
+        const name = p.name ?? "My Profile";
         const bio = p.bio ?? "";
         const photoURL = p.photoURL ?? "";
 
         setProfile((prev) => ({
           ...prev,
+          name,
           photoURL,
           bio,
         }));
+        setEditName(name);
         setEditBio(bio);
         setEditPhotoURL(photoURL);
 
@@ -110,6 +114,7 @@ export function ProfileView() {
   };
 
   const handleCancelEdit = () => {
+    setEditName(profile.name);
     setEditBio(profile.bio);
     setEditPhotoURL(profile.photoURL);
     setIsEditingProfile(false);
@@ -123,13 +128,17 @@ export function ProfileView() {
     setSaveError("");
 
     try {
+      const newName = editName.trim().slice(0, 11);
       const newBio = editBio.trim();
       const newPhotoURL = editPhotoURL.trim();
 
-      await saveMyProfile(uid, { bio: newBio, photoURL: newPhotoURL });
+      console.log("[US2] saving profile to firestore...", { newName, newBio, newPhotoURL });
+
+      await saveMyProfile(uid, { name: newName, bio: newBio, photoURL: newPhotoURL });
 
       setProfile((prev) => ({
         ...prev,
+        name: newName,
         bio: newBio,
         photoURL: newPhotoURL,
       }));
@@ -152,7 +161,7 @@ export function ProfileView() {
     return (
       <div className="p-6">
         <div className="bg-white rounded-2xl p-6 shadow-lg">
-          <h2 className="text-xl font-bold mb-2">Profile</h2>
+          <h2 className="text-xl font-bold mb-2">{(profile.name?.trim() ? profile.name : "My Profile").slice(0, 11)}</h2>
           <p className="text-gray-600">Please log in to edit your profile.</p>
         </div>
       </div>
@@ -183,6 +192,7 @@ export function ProfileView() {
                   <h2 className="text-2xl font-bold">{profile.name}</h2>
                   <button
                     onClick={() => {
+                      setEditName(profile.name);
                       setEditBio(profile.bio);
                       setEditPhotoURL(profile.photoURL);
                       setSaveError("");
@@ -235,6 +245,21 @@ export function ProfileView() {
                   />
                 </div>
 
+                {/*Edit Name*/}
+                <div className="w-full space-y-2">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Edit Name
+                </label>
+                  <Input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="Enter your name"
+                    className="text-sm"
+                    maxLength={11}
+                  />
+                </div>
+
+                {/*Edit Photo*/}
                 <div className="w-full space-y-2">
                   <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Profile Photo URL
