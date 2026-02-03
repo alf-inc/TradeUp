@@ -245,7 +245,7 @@ export function SwipeView() {
               </div>
 
               {/* Bottom Info */}
-              <div className="absolute bottom-5 left-4 right-20 text-white">
+              <div className="absolute bottom-5 left-4 right-16 text-white">
                 <h3 className="text-2xl font-bold mb-2">{item.title}</h3>
                 <p className="text-white/90 text-sm mb-3 line-clamp-3">{item.description}</p>
                 
@@ -259,27 +259,21 @@ export function SwipeView() {
                   </div>
                 </div>
               </div>
+
+              {/* Like Button (scrolls with card) */}
+              <button
+                onClick={handleLike}
+                className="absolute right-4 bottom-24 h-12 w-12 bg-white/20 backdrop-blur-md rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform group"
+              >
+                <Heart 
+                  className={`w-6 h-6 transition-all group-hover:text-red-500 group-hover:fill-red-500 ${
+                    isCurrentLiked ? 'text-red-500 fill-red-500' : 'text-gray-400 fill-gray-400'
+                  }`}
+                />
+              </button>
             </div>
           </div>
         ))}
-      </div>
-
-      {/* Side Action Buttons - TikTok Style */}
-      <div className="absolute right-3 bottom-15 flex flex-col gap-4 z-10">
-        {/* Like Button */}
-        <button
-          onClick={handleLike}
-          className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-full shadow-lg flex flex-col items-center justify-center hover:scale-110 transition-transform group"
-          
-        >
-          <Heart 
-            className={`w-7 h-7 transition-all group-hover:text-red-500 group-hover:fill-red-500 ${
-              isCurrentLiked ? 'text-red-500 fill-red-500' : 'text-gray-400 fill-gray-400'
-            }`}
-          />
-        </button>
-
-        
       </div>
 
     </div>
