@@ -14,6 +14,8 @@ US3: View Profile and Posted Items    Persona: Alice	Story points: 2  	Priority:
 Description: As a student trader, I want to view my profile and the items I have posted in one place, 
 so that I can easily check what is still available and manage my trades without wasting time.
 
+Assigned: Hussain/ Ryan   Completed: Hussain/Ryan   Merged By: Doug     Time taken: 5 hours
+
 US4: Post an Item for Trade   Persona: Casual User	Story points: 2		Priority: 2
 Description: As a casual user, I want to post an item for trade using photos, a category, and a 
 short description, so that I can make my item available and start trading easily.

@@ -34,6 +34,7 @@ export const storage = getStorage(app);
 
 
 export type UserProfile = {
+  name?: string
   bio?: string;
   photoURL?: string;
 };

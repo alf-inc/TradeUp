@@ -6,14 +6,19 @@ import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Button } from "./ui/button";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth, getMyProfile, saveMyProfile, saveNewItem, getUserItems, deleteItem } from "../firebase/firebase";
-import { Item } from "../types";
+import {
+  auth,
+  getMyProfile,
+  saveMyProfile,
+  saveNewItem,
+  getUserItems,
+  deleteItem,
+} from "../firebase/firebase";
 
 export function ProfileView() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
 
-  // const [items, setItems] = useState(currentUser.items);
   const [items, setItems] = useState<any[]>([]);
 
   // Auth state
@@ -34,7 +39,7 @@ export function ProfileView() {
     photoURL: string;
     bio: string;
   }>({
-    name: auth.currentUser?.displayName || "My Profile" || currentUser.name ,
+    name: "My Profile",
     photoURL: "",
     bio: "",
   });
@@ -42,37 +47,55 @@ export function ProfileView() {
   // Edit form state (URL + Bio)
   const [editBio, setEditBio] = useState("");
   const [editPhotoURL, setEditPhotoURL] = useState("");
+  const [editName, setEditName] = useState("");
 
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [saveError, setSaveError] = useState<string>("");
 
-  // Load profile from Firestore when uid is available
+  // NEW: Item loading + error
+  const [loadingItems, setLoadingItems] = useState(false);
+  const [itemsError, setItemsError] = useState("");
+
+  // Load profile + items from Firestore when uid is available
   useEffect(() => {
     if (!uid) return;
 
     (async () => {
       setLoadingProfile(true);
+      setLoadingItems(true);
+      setItemsError("");
+
       try {
         const p = await getMyProfile(uid);
+
+        const name = p.name ?? "My Profile";
         const bio = p.bio ?? "";
         const photoURL = p.photoURL ?? "";
 
         setProfile((prev) => ({
           ...prev,
+          name,
           photoURL,
           bio,
         }));
+        setEditName(name);
         setEditBio(bio);
         setEditPhotoURL(photoURL);
 
         // Load user's items
         const userItems = await getUserItems(uid);
+
+        // Optional: sort newest first if createdAt exists
+        userItems.sort((a: any, b: any) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+
         setItems(userItems);
       } catch (error) {
-        console.error("Error loading profile/items:", error); // If error occurs when retrieving user items
+        console.error("Error loading profile/items:", error);
+        setItemsError("Failed to load your items.");
       } finally {
         setLoadingProfile(false);
+        setLoadingItems(false);
       }
     })();
   }, [uid]);
@@ -81,7 +104,9 @@ export function ProfileView() {
     if (!confirm("Are you sure you want to delete this item?")) return;
     try {
       await deleteItem(itemId); // Delete from Firestore
-      setItems(items.filter((item) => item.id !== itemId)); // Update UI
+
+      // Functional update prevents stale-state bugs
+      setItems((prev) => prev.filter((item) => item.id !== itemId));
     } catch (e) {
       console.error("Failed to delete item", e);
       alert("Failed to delete item");
@@ -89,6 +114,7 @@ export function ProfileView() {
   };
 
   const handleCancelEdit = () => {
+    setEditName(profile.name);
     setEditBio(profile.bio);
     setEditPhotoURL(profile.photoURL);
     setIsEditingProfile(false);
@@ -101,20 +127,18 @@ export function ProfileView() {
     setSavingProfile(true);
     setSaveError("");
 
-    console.log("[US2] save start", { uid });
-
     try {
+      const newName = editName.trim().slice(0, 11);
       const newBio = editBio.trim();
       const newPhotoURL = editPhotoURL.trim();
 
-      console.log("[US2] saving profile to firestore...", { newBio, newPhotoURL });
+      console.log("[US2] saving profile to firestore...", { newName, newBio, newPhotoURL });
 
-      await saveMyProfile(uid, { bio: newBio, photoURL: newPhotoURL });
-
-      console.log("[US2] save success ✅");
+      await saveMyProfile(uid, { name: newName, bio: newBio, photoURL: newPhotoURL });
 
       setProfile((prev) => ({
         ...prev,
+        name: newName,
         bio: newBio,
         photoURL: newPhotoURL,
       }));
@@ -125,7 +149,6 @@ export function ProfileView() {
       setSaveError(e?.message ?? String(e));
     } finally {
       setSavingProfile(false);
-      console.log("[US2] save end");
     }
   };
 
@@ -138,7 +161,7 @@ export function ProfileView() {
     return (
       <div className="p-6">
         <div className="bg-white rounded-2xl p-6 shadow-lg">
-          <h2 className="text-xl font-bold mb-2">Profile</h2>
+          <h2 className="text-xl font-bold mb-2">{(profile.name?.trim() ? profile.name : "My Profile").slice(0, 11)}</h2>
           <p className="text-gray-600">Please log in to edit your profile.</p>
         </div>
       </div>
@@ -158,14 +181,18 @@ export function ProfileView() {
                 <img
                   src={profile.photoURL || currentUser.avatar}
                   alt={profile.name}
-                  className="w-24 h-24 rounded-full object-cover ring-4 ring-purple-100 shadow-sm"
+                  className="w-20 h-20 rounded-full object-cover"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = currentUser.avatar;
+                  }}
                 />
               </div>
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-3xl font-extrabold tracking-tight">{profile.name}</h2>
+                  <h2 className="text-2xl font-bold">{profile.name}</h2>
                   <button
                     onClick={() => {
+                      setEditName(profile.name);
                       setEditBio(profile.bio);
                       setEditPhotoURL(profile.photoURL);
                       setSaveError("");
@@ -176,7 +203,7 @@ export function ProfileView() {
                     <Edit2 className="w-4 h-4 text-gray-600" />
                   </button>
                 </div>
-                <p className="text-gray-500">
+                <p className="text-gray-600 italic">
                   {profile.bio || "No bio yet. Add one to help people know you better!"}
                 </p>
               </div>
@@ -213,12 +240,26 @@ export function ProfileView() {
                     alt="Preview"
                     className="w-24 h-24 rounded-full object-cover border-4 border-purple-100"
                     onError={(e) => {
-                      // fallback if URL invalid
                       (e.currentTarget as HTMLImageElement).src = currentUser.avatar;
                     }}
                   />
                 </div>
 
+                {/*Edit Name*/}
+                <div className="w-full space-y-2">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Edit Name
+                </label>
+                  <Input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="Enter your name"
+                    className="text-sm"
+                    maxLength={11}
+                  />
+                </div>
+
+                {/*Edit Photo*/}
                 <div className="w-full space-y-2">
                   <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Profile Photo URL
@@ -247,15 +288,11 @@ export function ProfileView() {
                   className="min-h-[100px]"
                   maxLength={160}
                 />
-                <div className="text-xs text-gray-400 text-right">
-                  {editBio.length}/160
-                </div>
+                <div className="text-xs text-gray-400 text-right">{editBio.length}/160</div>
               </div>
 
               {/* Error */}
-              {saveError && (
-                <div className="text-sm text-red-600">Save failed: {saveError}</div>
-              )}
+              {saveError && <div className="text-sm text-red-600">Save failed: {saveError}</div>}
 
               <Button
                 onClick={handleSaveProfile}
@@ -269,42 +306,45 @@ export function ProfileView() {
 
           {/* Stats */}
           {!isEditingProfile && (
-            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-gray-100">
-              {[
-                { label: "Items", value: items.length },
-                { label: "Matches", value: 12 },
-                { label: "Trades", value: 8 },
-              ].map((stat) => (
-                <div
-                  key={stat.label}
-                  className="bg-gray-50 rounded-xl py-4 text-center shadow-sm hover:shadow-md transition"
-                >
-                  <p className="text-2xl font-bold text-purple-600">
-                    {stat.value}
-                  </p>
-                  <p className="text-xs uppercase tracking-wide text-gray-500">
-                    {stat.label}
-                  </p>
-                </div>
-              ))}
+            <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-purple-600">{items.length}</p>
+                <p className="text-sm text-gray-500">Items</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-purple-600">12</p>
+                <p className="text-sm text-gray-500">Matches</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-purple-600">8</p>
+                <p className="text-sm text-gray-500">Trades</p>
+              </div>
             </div>
           )}
         </div>
 
-        {/* My Items Section (keep mock for now) */}
+        {/* My Items Section */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold">My Items for Trade</h3>
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-5 py-2 rounded-full hover:shadow-lg hover:scale-[1.02] transition"
+              className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-full hover:shadow-lg transition-shadow"
             >
               <Plus className="w-4 h-4" />
               <span>Add Item</span>
             </button>
           </div>
 
-          {items.length === 0 ? (
+          {loadingItems ? (
+            <div className="bg-white rounded-2xl p-6 shadow-lg text-gray-600">
+              Loading your items...
+            </div>
+          ) : itemsError ? (
+            <div className="bg-white rounded-2xl p-6 shadow-lg text-red-600">
+              {itemsError}
+            </div>
+          ) : items.length === 0 ? (
             <div className="bg-white rounded-2xl p-8 shadow-lg text-center">
               <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Plus className="w-8 h-8 text-purple-600" />
@@ -319,44 +359,51 @@ export function ProfileView() {
             </div>
           ) : (
             <div className="grid gap-4">
-              {items.map((item) => (
-                <div
-                  key={item.id}
-                  className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl hover:scale-[1.01] transition-all"
-                >
-                  <div className="flex gap-4">
-                    <img
-                      src={item.imageUrls[0]}
-                      alt={item.title}
-                      className="w-32 h-32 object-cover"
-                    />
-                    <div className="flex-1 p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <h4 className="font-bold mb-1">{item.title}</h4>
-                          <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                            {item.description}
-                          </p>
+              {items.map((item) => {
+                const thumb = item.imageUrls?.[0] || currentUser.avatar;
+
+                return (
+                  <div
+                    key={item.id}
+                    className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
+                  >
+                    <div className="flex gap-4">
+                      <img
+                        src={thumb}
+                        alt={item.title}
+                        className="w-32 h-32 object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = currentUser.avatar;
+                        }}
+                      />
+                      <div className="flex-1 p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h4 className="font-bold mb-1">{item.title}</h4>
+                            <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                              {item.description}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleDeleteItem(item.id)}
+                            className="p-2 hover:bg-red-50 rounded-full transition-colors group"
+                          >
+                            <Trash2 className="w-4 h-4 text-gray-400 group-hover:text-red-500" />
+                          </button>
                         </div>
-                        <button
-                          onClick={() => handleDeleteItem(item.id)}
-                          className="p-2 hover:bg-red-50 rounded-full transition-colors group"
-                        >
-                          <Trash2 className="w-4 h-4 text-gray-400 group-hover:text-red-500" />
-                        </button>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
-                          {item.category}
-                        </span>
-                        <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full capitalize">
-                          {item.condition}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
+                            {item.category}
+                          </span>
+                          <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full capitalize">
+                            {item.condition}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -367,7 +414,6 @@ export function ProfileView() {
           onClose={() => setIsAddModalOpen(false)}
           onAdd={async (partialItem) => {
             try {
-              // Construct the full item for Firestore
               const newItemData = {
                 ...partialItem,
                 userId: uid,
@@ -375,12 +421,12 @@ export function ProfileView() {
                 userAvatar: profile.photoURL || currentUser.avatar,
                 createdAt: Date.now(),
               };
-              
-              // Save to Firestore
+
               const newId = await saveNewItem(newItemData);
-              
-              // Update local state (Optimistic update or using the returned ID)
-              setItems([...items, { ...newItemData, id: newId }]);
+
+              // Functional update to avoid stale state
+              setItems((prev) => [{ ...newItemData, id: newId }, ...prev]);
+
               setIsAddModalOpen(false);
             } catch (error) {
               console.error("Failed to add item:", error);
