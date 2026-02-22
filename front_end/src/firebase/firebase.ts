@@ -1,20 +1,19 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getAnalytics, isSupported } from "firebase/analytics";
-import { getFirestore, doc, getDoc, setDoc, collection, addDoc, query, where, getDocs, deleteDoc } from "firebase/firestore";
+// import { getAnalytics, isSupported } from "firebase/analytics";
+import { getFirestore, doc, getDoc, setDoc, collection, addDoc, query, where, getDocs, deleteDoc,
+   limit, orderBy, startAfter, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-
-
 
 // Firebase configuration
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+  apiKey: "AIzaSyAB010mSTZIEzhtwBAELxfpFNS-D8ZUHTI",
+  authDomain: "tradeup-301.firebaseapp.com",
+  projectId: "tradeup-301",
+  storageBucket: "tradeup-301.firebasestorage.app",
+  messagingSenderId: "829476476398",
+  appId: "1:829476476398:web:07b4b89c6d39eaf80b6aff",
+  measurementId: "G-N61WPHVQLS",
 };
 
 // Initialize Firebase
@@ -32,6 +31,55 @@ export const storage = getStorage(app);
 //   }
 // });
 
+
+// Feed Item
+export type FeedItem = {
+  id: string;
+  title: string;
+  description: string;
+  imageUrls: string[];
+  category: string;
+  condition: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  createdAt: number;
+};
+
+export type GetFeedOptions = {
+  limitCount?: number;                 // default 20
+  category?: string;                   // optional filter
+  condition?: string;                  // optional filter
+  excludeUserId?: string;              // optional (skip your own items client-side)
+  startAfterDoc?: QueryDocumentSnapshot<DocumentData>; // pagination
+};
+
+export async function getFeedItems(options: GetFeedOptions = {}) {
+  const {
+    limitCount = 20,
+    category,
+    condition,
+    excludeUserId,
+    startAfterDoc,
+  } = options;
+
+  const constraints: any[] = [orderBy("createdAt", "desc"), limit(limitCount)];
+
+  if (category) constraints.unshift(where("category", "==", category));
+  if (condition) constraints.unshift(where("condition", "==", condition));
+  if (startAfterDoc) constraints.push(startAfter(startAfterDoc));
+
+  const q = query(collection(db, "items"), ...constraints);
+  const snap = await getDocs(q);
+
+  const items: FeedItem[] = snap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<FeedItem, "id">) }))
+    .filter((it) => (excludeUserId ? it.userId !== excludeUserId : true));
+
+  const lastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
+
+  return { items, lastDoc };
+}
 
 export type UserProfile = {
   name?: string
