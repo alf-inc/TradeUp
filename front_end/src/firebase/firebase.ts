@@ -1,8 +1,58 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getAnalytics, isSupported } from "firebase/analytics";
-import { getFirestore, doc, getDoc, setDoc, collection, addDoc, query, where, getDocs, deleteDoc } from "firebase/firestore";
+import { getFirestore, doc, getDoc, setDoc, collection, addDoc, query, where, getDocs, deleteDoc,
+   limit, orderBy, startAfter, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+
+// Feed Item
+export type FeedItem = {
+  id: string;
+  title: string;
+  description: string;
+  imageUrls: string[];
+  category: string;
+  condition: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  createdAt: number;
+};
+
+export type GetFeedOptions = {
+  limitCount?: number;                 // default 20
+  category?: string;                   // optional filter
+  condition?: string;                  // optional filter
+  excludeUserId?: string;              // optional (skip your own items client-side)
+  startAfterDoc?: QueryDocumentSnapshot<DocumentData>; // pagination
+};
+
+export async function getFeedItems(options: GetFeedOptions = {}) {
+  const {
+    limitCount = 20,
+    category,
+    condition,
+    excludeUserId,
+    startAfterDoc,
+  } = options;
+
+  const constraints: any[] = [orderBy("createdAt", "desc"), limit(limitCount)];
+
+  if (category) constraints.unshift(where("category", "==", category));
+  if (condition) constraints.unshift(where("condition", "==", condition));
+  if (startAfterDoc) constraints.push(startAfter(startAfterDoc));
+
+  const q = query(collection(db, "items"), ...constraints);
+  const snap = await getDocs(q);
+
+  const items: FeedItem[] = snap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<FeedItem, "id">) }))
+    .filter((it) => (excludeUserId ? it.userId !== excludeUserId : true));
+
+  const lastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
+
+  return { items, lastDoc };
+}
 
 // Firebase configuration
 const firebaseConfig = {
@@ -32,6 +82,7 @@ export const storage = getStorage(app);
 
 
 export type UserProfile = {
+  name?: string
   bio?: string;
   photoURL?: string;
 };
