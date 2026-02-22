@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { availableItems } from '../data/mockData';
 import { Item } from '../types';
 import { Heart, Package, ChevronLeft, ChevronRight } from 'lucide-react';
+import { getFeedItems, auth } from '../firebase/firebase';
 
 export function SwipeView() {
-  const [items, setItems] = useState<Item[]>(availableItems);
-  const [order, setOrder] = useState<number[]>(() => buildRandomOrder(availableItems));
+  const [items, setItems] = useState<Item[]>([]);
+  const [order, setOrder] = useState<number[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [likedItems, setLikedItems] = useState<string[]>([]);
   const [imageTrackById, setImageTrackById] = useState<Record<string, number>>({});
@@ -13,8 +13,24 @@ export function SwipeView() {
   const [imageTransitioningById, setImageTransitioningById] = useState<Record<string, boolean>>({});
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const orderedItems = order.map((index) => items[index]);
+  useEffect(() => {
+    (async () => {
+      const uid = auth.currentUser?.uid;
+
+      const { items: feedItems } = await getFeedItems({
+        excludeUserId: uid ?? undefined,
+        limitCount: 50,
+      });
+
+      setItems(feedItems as unknown as Item[]);
+      setOrder(buildRandomOrder(feedItems as unknown as Item[]));
+      setCurrentIndex(0);
+    })();
+  }, []);
+
+  const orderedItems = order.map((index) => items[index]).filter(Boolean);
   const currentItem = orderedItems[currentIndex];
+
   const isCurrentLiked = currentItem ? likedItems.includes(currentItem.id) : false;
   const getTrackIndex = (itemId: string, total: number) => {
     const raw = imageTrackById[itemId] ?? 1;
@@ -56,7 +72,7 @@ export function SwipeView() {
 
     container.addEventListener('scroll', handleScroll);
     return () => container.removeEventListener('scroll', handleScroll);
-  }, [currentIndex, orderedItems.length]);
+  }, [currentIndex, orderedItems.length, order.length]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -84,13 +100,12 @@ export function SwipeView() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentItem]);
 
-  useEffect(() => {
-    if (items.length <= 1 || order.length === 0) return;
-
-    if (currentIndex >= order.length - 2) {
-      setOrder((prev) => appendRandomOrder(items, prev));
-    }
-  }, [currentIndex, items, order.length]);
+useEffect(() => {
+  if (items.length <= 1 || order.length === 0) return;
+  if (currentIndex >= order.length - 2) {
+    setOrder((prev) => appendRandomOrder(items, prev));
+  }
+}, [currentIndex, items, order]);
 
   return (
     <div className="h-full relative">
