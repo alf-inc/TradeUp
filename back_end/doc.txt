@@ -1,0 +1,194 @@
+TradeUp Backend – Local Setup & API Usage Guide
+==============================================
+
+This document explains how to:
+1) Set up and activate the Python virtual environment (macOS & Windows)
+2) Run the FastAPI backend locally
+3) Obtain Firebase service account credentials
+4) Call the backend API from the frontend
+
+
+--------------------------------------------------
+1. PREREQUISITES
+--------------------------------------------------
+
+- Python 3.9 or higher installed
+- Git installed
+- Access to the TradeUp Firebase project
+- Node.js installed (for frontend testing)
+
+Backend folder:
+    back_end/
+
+
+--------------------------------------------------
+2. CREATE & ACTIVATE VIRTUAL ENVIRONMENT
+--------------------------------------------------
+
+Navigate to backend folder:
+
+    cd back_end
+
+
+Create virtual environment (run once):
+
+macOS / Linux:
+    python3 -m venv venv
+
+Windows (PowerShell):
+    python -m venv venv
+
+
+Activate virtual environment:
+
+macOS / Linux:
+    source venv/bin/activate
+
+Windows (PowerShell):
+    venv\Scripts\activate
+
+
+You should now see `(venv)` in your terminal.
+
+Example:
+    (venv) user@machine back_end %
+
+
+--------------------------------------------------
+3. INSTALL BACKEND DEPENDENCIES
+--------------------------------------------------
+
+Make sure `(venv)` is active, then run:
+
+    pip install fastapi uvicorn firebase-admin google-cloud-firestore
+
+
+--------------------------------------------------
+4. FIREBASE SERVICE ACCOUNT KEY SETUP
+--------------------------------------------------
+
+The backend uses Firebase Admin SDK.
+This requires a **service account key**.
+
+IMPORTANT:
+- This file must NEVER be committed to Git
+- Each developer must generate their own key
+
+Steps:
+
+1) Go to Firebase Console
+2) Select the TradeUp project
+3) Click ⚙️ → Project settings
+4) Open the "Service accounts" tab
+5) Under "Firebase Admin SDK", click: (Python)
+
+       Generate new private key
+
+6) Download the JSON file
+7) Rename it to:
+
+       serviceAccountKey.json
+
+8) Place it here:
+
+       back_end/serviceAccountKey.json
+
+This file is already ignored by `.gitignore`.
+
+
+--------------------------------------------------
+5. START THE FASTAPI SERVER
+--------------------------------------------------
+
+Ensure:
+- You are inside `back_end/`
+- Virtual environment is active `(venv)`
+- `serviceAccountKey.json` exists
+
+Run:
+
+    uvicorn app.main:app --reload --port 8000
+
+If successful, you will see:
+
+    Uvicorn running on http://127.0.0.1:8000
+
+
+--------------------------------------------------
+6. TEST BACKEND USING SWAGGER UI
+--------------------------------------------------
+
+Open in browser:
+
+    http://127.0.0.1:8000/docs
+
+You can test the `/matches/check` endpoint directly.
+
+
+--------------------------------------------------
+7. CALLING THE API FROM THE FRONTEND
+--------------------------------------------------
+
+Endpoint:
+    POST /matches/check
+
+Query parameters:
+- likerUserId (string)
+- likedItemId (string)
+
+
+Example using fetch() in React:
+
+--------------------------------------------------
+JavaScript / TypeScript Example
+--------------------------------------------------
+
+```ts
+fetch(
+  "http://127.0.0.1:8000/matches/check" +
+  "?likerUserId=USER_A" +
+  "&likedItemId=ITEM_ID",
+  {
+    method: "POST",
+  }
+)
+  .then(res => res.json())
+  .then(data => {
+    console.log(data);
+
+    if (data.matches.length > 0) {
+      // Handle match (e.g. show UI, trigger notification)
+    } else {
+      // No match
+    }
+  })
+  .catch(err => {
+    console.error("Match check failed:", err);
+  });
+
+Example response (no match):
+
+{
+  "matches": []
+}
+
+Example response (match found):
+
+{
+  "matches": [
+    {
+      "userA": "USER_A",
+      "userB": "USER_B",
+      "itemA": "ITEM_1",
+      "itemB": "ITEM_2"
+    }
+  ]
+}
+
+STOP SERVER & EXIT ENVIRONMENT
+
+Stop FastAPI server:
+CTRL + C
+
+Deactivate virtual environment:
+deactivate
