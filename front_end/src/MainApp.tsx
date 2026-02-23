@@ -1,17 +1,47 @@
-import { useState } from 'react';
-import { SwipeView } from './components/SwipeView';
+import { useEffect, useState } from 'react';
+import SwipeView from './components/SwipeView';
 import { ProfileView } from './components/ProfileView';
 import { MatchesView } from './components/MatchesView';
 import { Heart, User, MessageCircle } from 'lucide-react';
 
+import { auth, getLikedItems } from "./firebase/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+
 export default function App() {
+
+  const [likedItems, setLikedItems] = useState<string[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setUserId(null);
+        setLikedItems([]);
+        return;
+      }
+
+      setUserId(user.uid);
+
+      // Load liked items from Firestore
+      try {
+        const likes = await getLikedItems(user.uid);
+        setLikedItems(likes);
+      } catch (e) {
+        console.error("Failed to load liked items:", e);
+        setLikedItems([]);
+      }
+    });
+
+    return () => unsub();
+  }, []);
+  
   const [activeView, setActiveView] = useState<'Listings' | 'matches' | 'profile'>('Listings');
 
   return (
     <div className={`min-h-screen bg-blue-50`}>
       <div className="max-w-md mx-auto h-screen flex flex-col">
         {/* Header */}
-        <header className="bg-Wihte shadow-sm p-4 relative z-10">
+        <header className="bg-White shadow-sm p-4 relative z-10">
           <h1 className="text-2xl font-bold text-center bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
             TradeUp
           </h1>
@@ -19,7 +49,13 @@ export default function App() {
 
         {/* Main Content */}
         <main className="flex-1 overflow-hidden">
-          {activeView === 'Listings' && <SwipeView />}
+          {activeView === 'Listings' && ( 
+            <SwipeView
+            userId={userId}
+            likedItems={likedItems}
+            setLikedItems={setLikedItems}
+            />
+          )}
           {activeView === 'matches' && <MatchesView />}
           {activeView === 'profile' && <ProfileView />}
         </main>
