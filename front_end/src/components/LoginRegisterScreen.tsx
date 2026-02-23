@@ -19,6 +19,9 @@ import {
 } from "firebase/auth";
 import { auth } from "../firebase/firebase";
 
+import { doc, setDoc } from "firebase/firestore";
+import { db } from "../firebase/firebase";
+
 interface LoginRegisterScreenProps {
   onLogin: () => void;
 }
@@ -28,6 +31,9 @@ export function LoginRegisterScreen({ onLogin }: LoginRegisterScreenProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [email, setEmail] = useState("");
+
+  const [name, setName] = useState("");
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
@@ -48,7 +54,19 @@ export function LoginRegisterScreen({ onLogin }: LoginRegisterScreenProps) {
       setLoading(true);
 
       if (mode === "register") {
-        await createUserWithEmailAndPassword(auth, email, password);
+        // await createUserWithEmailAndPassword(auth, email, password);
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        const user = cred.user;
+
+      await setDoc(doc(db, "users", user.uid), {
+        userId: user.uid,
+        name: name,
+        email: user.email ?? "",
+        bio: "",
+        photoURL: user.photoURL ?? "",
+        liked_items: [],
+        createdAt: Date.now(),
+      });
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
@@ -198,6 +216,8 @@ export function LoginRegisterScreen({ onLogin }: LoginRegisterScreenProps) {
                       placeholder="John Doe"
                       className="pl-10"
                       required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
                     />
                   </div>
                 </div>
