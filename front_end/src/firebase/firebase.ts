@@ -2,7 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 // import { getAnalytics, isSupported } from "firebase/analytics";
 import { getFirestore, doc, getDoc, setDoc, collection, addDoc, query, where, getDocs, deleteDoc,
-   limit, orderBy, startAfter, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
+   limit, orderBy, startAfter, QueryDocumentSnapshot, DocumentData, arrayUnion, arrayRemove, updateDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 // Firebase configuration
@@ -150,4 +150,32 @@ export async function getUserItems(uid: string) {
 // Delete an item given its item ID
 export async function deleteItem(itemId: string) {
   await deleteDoc(doc(db, "items", itemId));
+}
+
+// =======================
+// Liked Items Functions
+// =======================
+
+export async function addLikedItem(uid: string, itemId: string) {
+  const userRef = doc(db, "users", uid);
+  await updateDoc(userRef, {
+    liked_items: arrayUnion(itemId),
+  });
+}
+
+export async function removeLikedItem(uid: string, itemId: string) {
+  const userRef = doc(db, "users", uid);
+  await updateDoc(userRef, {
+    liked_items: arrayRemove(itemId),
+  });
+}
+
+export async function getLikedItems(uid: string): Promise<string[]> {
+  const userRef = doc(db, "users", uid);
+  const snap = await getDoc(userRef);
+
+  if (!snap.exists()) return [];
+
+  const data = snap.data();
+  return (data.liked_items ?? []) as string[];
 }

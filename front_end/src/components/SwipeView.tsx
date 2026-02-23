@@ -1,13 +1,20 @@
 import { useState, useRef, useEffect } from 'react';
 import { Item } from '../types';
 import { Heart, Package, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getFeedItems, auth } from '../firebase/firebase';
+import { getFeedItems, auth, addLikedItem, removeLikedItem } from '../firebase/firebase';
 
-export function SwipeView() {
+
+type SwipeViewProps = {
+  userId: string | null;
+  likedItems: string[];
+  setLikedItems: React.Dispatch<React.SetStateAction<string[]>>;
+};
+
+export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeViewProps) {
   const [items, setItems] = useState<Item[]>([]);
   const [order, setOrder] = useState<number[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [likedItems, setLikedItems] = useState<string[]>([]);
+  // const [likedItems, setLikedItems] = useState<string[]>([]);
   const [imageTrackById, setImageTrackById] = useState<Record<string, number>>({});
   const [imageNoTransitionById, setImageNoTransitionById] = useState<Record<string, boolean>>({});
   const [imageTransitioningById, setImageTransitioningById] = useState<Record<string, boolean>>({});
@@ -15,7 +22,14 @@ export function SwipeView() {
 
   useEffect(() => {
     (async () => {
-      const uid = auth.currentUser?.uid;
+      const uid = userId ?? auth.currentUser?.uid;
+      if (!uid) {
+        console.warn("No user logged in");
+        return;
+      }
+
+      // const liked = await getLikedItems(uid);
+      // setLikedItems(liked);
 
       const { items: feedItems } = await getFeedItems({
         excludeUserId: uid ?? undefined,
@@ -26,7 +40,7 @@ export function SwipeView() {
       setOrder(buildRandomOrder(feedItems as unknown as Item[]));
       setCurrentIndex(0);
     })();
-  }, []);
+  }, [userId]);
 
   const orderedItems = order.map((index) => items[index]).filter(Boolean);
   const currentItem = orderedItems[currentIndex];
@@ -40,15 +54,38 @@ export function SwipeView() {
     return raw;
   };
 
-  const handleLike = () => {
-    if (currentItem) {
-      setLikedItems((prev) =>
-        prev.includes(currentItem.id)
-          ? prev.filter((id) => id !== currentItem.id)
-          : [...prev, currentItem.id]
-      );
+const handleLike = async () => {
+  if (!currentItem) return;
+
+  const uid = userId ?? auth.currentUser?.uid;
+  if (!uid) {
+    console.warn("No user logged in");
+    return;
+  }
+
+  const itemId = currentItem.id;
+  const alreadyLiked = likedItems.includes(itemId);
+
+  // Optimistic UI update (feels instant)
+  setLikedItems((prev) =>
+    alreadyLiked ? prev.filter((id) => id !== itemId) : [...prev, itemId]
+  );
+
+  try {
+    if (alreadyLiked) {
+      await removeLikedItem(uid, itemId);
+    } else {
+      await addLikedItem(uid, itemId);
     }
-  };
+  } catch (e) {
+    console.error("Failed to update liked items:", e);
+
+    // rollback if DB write fails
+    setLikedItems((prev) =>
+      alreadyLiked ? [...prev, itemId] : prev.filter((id) => id !== itemId)
+    );
+  }
+};
 
 
 
