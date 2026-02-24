@@ -1,17 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { MessageCircle, Clock, Check, X } from 'lucide-react';
 import { auth, db } from '../firebase/firebase'; 
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
 
 interface MatchNotification {
   id: string;
   userId: string;
   type: string;
+  status?: 'accepted' | 'rejected';
   createdAt: any;
   payload: {
     otherUserId: string;
-    itemId: string;        // The item YOU liked (theirs)
-    mutualItemId: string;  // The item THEY liked (yours)
+    itemId: string;
+    mutualItemId: string;
   };
 }
 
@@ -20,6 +21,7 @@ interface HydratedMatch {
   item: any;
   matchedWith: any;
   timestamp: Date;
+  status?: 'accepted' | 'rejected'; // Added status type
 }
 
 export function MatchesView() {
@@ -37,6 +39,52 @@ export function MatchesView() {
     if (diffHours < 24) return `${diffHours}h ago`;
     return `${diffDays}d ago`;
   };
+
+  const handleStatusUpdate = async (matchId: string, newStatus: 'accepted' | 'rejected', matchData: HydratedMatch) => {
+  if (!auth.currentUser) return;
+
+  // 1. Optimistic UI Update
+  setMatches((prev) => 
+    prev.map((m) => 
+      m.id === matchId ? { ...m, status: newStatus } : m
+    )
+  );
+
+  try {
+    // 2. Update MY notification status
+    const myNotificationRef = doc(db, "notifications", matchId);
+    await updateDoc(myNotificationRef, {
+      status: newStatus
+    });
+
+    // 3. IF I ACCEPTED, CHECK IF THEY ACCEPTED TOO
+    if (newStatus === 'accepted') {
+      // We need to find the notification sent to the OTHER user for this same match.
+      // logic: userId == otherUser AND payload.otherUserId == me
+      const q = query(
+        collection(db, "notifications"),
+        where("userId", "==", matchData.matchedWith.userId), // The other user
+        where("type", "==", "MUTUAL_MATCH"),
+        where("payload.otherUserId", "==", auth.currentUser.uid), // Me
+        where("payload.itemId", "==", matchData.item.id) // Ensure it's about the same item swap
+      );
+
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        const theirNotification = snapshot.docs[0].data();
+        
+        if (theirNotification.status === 'accepted') {
+          // At this point - we consider this a confirmed match
+          // RYAN: This is where you would add a confirmed match to the collection
+        }
+      }
+    }
+
+  } catch (error) {
+    console.error("Failed to update match status:", error);
+  }
+};
 
   useEffect(() => {
     const fetchMatchesFromNotifications = async () => {
@@ -57,7 +105,7 @@ export function MatchesView() {
         })) as MatchNotification[];
 
         const hydratedMatches = await Promise.all(
-          notifications.map(async (notif) => {
+          notifications.map(async (notif): Promise<HydratedMatch | null> => {
             const { itemId, mutualItemId } = notif.payload;
             
             const myItemSnap = await getDoc(doc(db, "items", mutualItemId));
@@ -71,12 +119,15 @@ export function MatchesView() {
               id: notif.id,
               timestamp: createdAtDate,
               item: { ...myItemSnap.data(), id: mutualItemId },
-              matchedWith: { ...theirItemSnap.data(), id: itemId }
+              matchedWith: { ...theirItemSnap.data(), id: itemId },
+              status: notif.status 
             };
           })
         );
 
-        setMatches(hydratedMatches.filter((m): m is HydratedMatch => m !== null));
+        const cleanMatches = hydratedMatches.filter((m): m is HydratedMatch => m !== null);
+        
+        setMatches(cleanMatches);
 
       } catch (error) {
         console.error("Error fetching matches from notifications:", error);
@@ -124,6 +175,7 @@ export function MatchesView() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 mb-4">
+                  {/* Your Item */}
                   <div>
                     <p className="text-xs text-gray-500 mb-2">Your Item</p>
                     <div className="relative">
@@ -139,6 +191,7 @@ export function MatchesView() {
                     </div>
                   </div>
 
+                  {/* Matched Item */}
                   <div>
                     <p className="text-xs text-gray-500 mb-2">Trade For</p>
                     <div className="relative">
@@ -166,6 +219,45 @@ export function MatchesView() {
                     <p className="text-sm text-gray-500">wants to trade</p>
                   </div>
                 </div>
+
+                {/* --- Conditional Rendering Based on Status --- */}
+                {match.status ? (
+                  <div className={`w-full py-3 rounded-full font-medium text-center flex items-center justify-center gap-2 ${
+                    match.status === 'accepted' 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-red-100 text-red-700'
+                  }`}>
+                    {match.status === 'accepted' ? (
+                      <>
+                        <Check className="w-5 h-5" />
+                        <span>Accepted</span>
+                      </>
+                    ) : (
+                      <>
+                        <X className="w-5 h-5" />
+                        <span>Rejected</span>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={() => handleStatusUpdate(match.id, 'rejected', match)} // Pass 'match' object
+                      className="..."
+                    >
+                      <X className="w-5 h-5" />
+                      <span>Reject</span>
+                    </button>
+
+                    <button 
+                      onClick={() => handleStatusUpdate(match.id, 'accepted', match)} // Pass 'match' object
+                      className="..."
+                    >
+                      <Check className="w-5 h-5" />
+                      <span>Accept</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ))}
