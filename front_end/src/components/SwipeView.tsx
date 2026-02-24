@@ -75,7 +75,15 @@ const handleLike = async () => {
     if (alreadyLiked) {
       await removeLikedItem(uid, itemId);
     } else {
-      await addLikedItem(uid, itemId);
+      await addLikedItem(uid, itemId);  
+      try {
+            await fetch(
+            `http://127.0.0.1:8000/matches/check-and-notify?likerUserId=${uid}&likedItemId=${itemId}`,
+            { method: "POST" }
+            );
+        } catch (serverErr) {
+            console.warn("Backend notification failed (but like was saved):", serverErr);
+        }    
     }
   } catch (e) {
     console.error("Failed to update liked items:", e);
