@@ -166,6 +166,17 @@ export function MatchesView() {
                     <p className="text-sm text-gray-500">wants to trade</p>
                   </div>
                 </div>
+
+                <div className="flex gap-3">
+                  <button className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-full font-medium hover:bg-gray-200 transition-colors flex items-center justify-center gap-2">
+                    <X className="w-5 h-5" />
+                    <span>Reject</span>
+                  </button>
+                  <button className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-full font-medium hover:shadow-lg transition-shadow flex items-center justify-center gap-2">
+                    <Check className="w-5 h-5" />
+                    <span>Accept</span>
+                  </button>
+                </div>
               </div>
             </div>
           ))}
