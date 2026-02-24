@@ -40,43 +40,43 @@ export function MatchesView() {
     return `${diffDays}d ago`;
   };
 
-  const handleStatusUpdate = async (matchId: string, newStatus: 'accepted' | 'rejected') => {
-    if (!auth.currentUser) return;
+  const handleStatusUpdate = async (matchId: string, newStatus: 'accepted' | 'rejected', matchData: HydratedMatch) => {
+  if (!auth.currentUser) return;
 
-    // 1. Optimistic UI Update: Update the status locally instead of removing it
-    setMatches((prev) => 
-      prev.map((m) => 
-        m.id === matchId ? { ...m, status: newStatus } : m
-      )
-    );
+  // 1. Optimistic UI Update
+  setMatches((prev) => 
+    prev.map((m) => 
+      m.id === matchId ? { ...m, status: newStatus } : m
+    )
+  );
 
-    try {
-      // 2. Update MY notification status
-      const myNotificationRef = doc(db, "notifications", matchId);
-      await updateDoc(myNotificationRef, {
-        status: newStatus
-      });
+  try {
+    // 2. Update MY notification status
+    const myNotificationRef = doc(db, "notifications", matchId);
+    await updateDoc(myNotificationRef, {
+      status: newStatus
+    });
 
-      // 3. IF I ACCEPTED, CHECK IF THEY ACCEPTED TOO
-      if (newStatus === 'accepted') {
-        // We need to find the notification sent to the OTHER user for this same match.
-        // logic: userId == otherUser AND payload.otherUserId == me
-        const q = query(
-          collection(db, "notifications"),
-          where("userId", "==", matchData.matchedWith.userId), // The other user
-          where("type", "==", "MUTUAL_MATCH"),
-          where("payload.otherUserId", "==", auth.currentUser.uid), // Me
-          where("payload.itemId", "==", matchData.item.id) // Ensure it's about the same item swap
-        );
+    // 3. IF I ACCEPTED, CHECK IF THEY ACCEPTED TOO
+    if (newStatus === 'accepted') {
+      // We need to find the notification sent to the OTHER user for this same match.
+      // logic: userId == otherUser AND payload.otherUserId == me
+      const q = query(
+        collection(db, "notifications"),
+        where("userId", "==", matchData.matchedWith.userId), // The other user
+        where("type", "==", "MUTUAL_MATCH"),
+        where("payload.otherUserId", "==", auth.currentUser.uid), // Me
+        where("payload.itemId", "==", matchData.item.id) // Ensure it's about the same item swap
+      );
 
-        const snapshot = await getDocs(q);
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        const theirNotification = snapshot.docs[0].data();
         
-        if (!snapshot.empty) {
-          const theirNotification = snapshot.docs[0].data();
-          
-          if (theirNotification.status === 'accepted') {
-            // Both have accepted - we can consider this a confirmed match
-            // RYAN: This is where you'd ad the match to a "confirmedMatches" collection 
+        if (theirNotification.status === 'accepted') {
+          // At this point - we consider this a confirmed match
+          // RYAN: This is where you would add a confirmed match to the collection
         }
       }
     }
@@ -84,7 +84,7 @@ export function MatchesView() {
   } catch (error) {
     console.error("Failed to update match status:", error);
   }
-  };
+};
 
   useEffect(() => {
     const fetchMatchesFromNotifications = async () => {
@@ -105,7 +105,7 @@ export function MatchesView() {
         })) as MatchNotification[];
 
         const hydratedMatches = await Promise.all(
-          notifications.map(async (notif) => {
+          notifications.map(async (notif): Promise<HydratedMatch | null> => {
             const { itemId, mutualItemId } = notif.payload;
             
             const myItemSnap = await getDoc(doc(db, "items", mutualItemId));
@@ -120,12 +120,14 @@ export function MatchesView() {
               timestamp: createdAtDate,
               item: { ...myItemSnap.data(), id: mutualItemId },
               matchedWith: { ...theirItemSnap.data(), id: itemId },
-              status: notif.status // Load existing status from DB
+              status: notif.status 
             };
           })
         );
 
-        setMatches(hydratedMatches.filter((m): m is HydratedMatch => m !== null));
+        const cleanMatches = hydratedMatches.filter((m): m is HydratedMatch => m !== null);
+        
+        setMatches(cleanMatches);
 
       } catch (error) {
         console.error("Error fetching matches from notifications:", error);
@@ -240,15 +242,16 @@ export function MatchesView() {
                 ) : (
                   <div className="flex gap-3">
                     <button 
-                      onClick={() => handleStatusUpdate(match.id, 'rejected')}
-                      className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-full font-medium hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+                      onClick={() => handleStatusUpdate(match.id, 'rejected', match)} // Pass 'match' object
+                      className="..."
                     >
                       <X className="w-5 h-5" />
                       <span>Reject</span>
                     </button>
+
                     <button 
-                      onClick={() => handleStatusUpdate(match.id, 'accepted')}
-                      className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-full font-medium hover:shadow-lg transition-shadow flex items-center justify-center gap-2"
+                      onClick={() => handleStatusUpdate(match.id, 'accepted', match)} // Pass 'match' object
+                      className="..."
                     >
                       <Check className="w-5 h-5" />
                       <span>Accept</span>
