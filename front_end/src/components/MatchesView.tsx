@@ -1,7 +1,31 @@
-import { mockMatches } from '../data/mockData';
-import { MessageCircle, Clock } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { MessageCircle, Clock, Check, X } from 'lucide-react';
+import { auth, db } from '../firebase/firebase'; 
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+
+interface MatchNotification {
+  id: string;
+  userId: string;
+  type: string;
+  createdAt: any;
+  payload: {
+    otherUserId: string;
+    itemId: string;        // The item YOU liked (theirs)
+    mutualItemId: string;  // The item THEY liked (yours)
+  };
+}
+
+interface HydratedMatch {
+  id: string; 
+  item: any;
+  matchedWith: any;
+  timestamp: Date;
+}
 
 export function MatchesView() {
+  const [matches, setMatches] = useState<HydratedMatch[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const formatTimestamp = (date: Date) => {
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -14,11 +38,69 @@ export function MatchesView() {
     return `${diffDays}d ago`;
   };
 
+  useEffect(() => {
+    const fetchMatchesFromNotifications = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      try {
+        const q = query(
+          collection(db, "notifications"),
+          where("userId", "==", user.uid),
+          where("type", "==", "MUTUAL_MATCH")
+        );
+
+        const snapshot = await getDocs(q);
+        const notifications = snapshot.docs.map(d => ({ 
+          id: d.id, 
+          ...d.data() 
+        })) as MatchNotification[];
+
+        const hydratedMatches = await Promise.all(
+          notifications.map(async (notif) => {
+            const { itemId, mutualItemId } = notif.payload;
+            
+            const myItemSnap = await getDoc(doc(db, "items", mutualItemId));
+            const theirItemSnap = await getDoc(doc(db, "items", itemId));
+
+            if (!myItemSnap.exists() || !theirItemSnap.exists()) return null;
+
+            const createdAtDate = notif.createdAt?.toDate ? notif.createdAt.toDate() : new Date();
+
+            return {
+              id: notif.id,
+              timestamp: createdAtDate,
+              item: { ...myItemSnap.data(), id: mutualItemId },
+              matchedWith: { ...theirItemSnap.data(), id: itemId }
+            };
+          })
+        );
+
+        setMatches(hydratedMatches.filter((m): m is HydratedMatch => m !== null));
+
+      } catch (error) {
+        console.error("Error fetching matches from notifications:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMatchesFromNotifications();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <p className="text-gray-500">Loading matches...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full overflow-y-auto p-6">
       <h2 className="text-2xl font-bold mb-6">Your Matches</h2>
 
-      {mockMatches.length === 0 ? (
+      {matches.length === 0 ? (
         <div className="bg-white rounded-2xl p-8 shadow-lg text-center">
           <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <MessageCircle className="w-8 h-8 text-purple-600" />
@@ -30,26 +112,23 @@ export function MatchesView() {
         </div>
       ) : (
         <div className="space-y-4">
-          {mockMatches.map((match) => (
+          {matches.map((match) => (
             <div
               key={match.id}
               className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
             >
               <div className="p-4">
-                {/* Match Header */}
                 <div className="flex items-center gap-2 mb-4 text-sm text-gray-500">
                   <Clock className="w-4 h-4" />
                   <span>Matched {formatTimestamp(match.timestamp)}</span>
                 </div>
 
-                {/* Items */}
                 <div className="grid grid-cols-2 gap-4 mb-4">
-                  {/* Your Item */}
                   <div>
                     <p className="text-xs text-gray-500 mb-2">Your Item</p>
                     <div className="relative">
                       <img
-                        src={match.item.imageUrls[0]}
+                        src={match.item.imageUrls?.[0] || 'https://via.placeholder.com/150'}
                         alt={match.item.title}
                         className="w-full h-32 object-cover rounded-lg"
                       />
@@ -60,12 +139,11 @@ export function MatchesView() {
                     </div>
                   </div>
 
-                  {/* Matched Item */}
                   <div>
                     <p className="text-xs text-gray-500 mb-2">Trade For</p>
                     <div className="relative">
                       <img
-                        src={match.matchedWith.imageUrls[0]}
+                        src={match.matchedWith.imageUrls?.[0] || 'https://via.placeholder.com/150'}
                         alt={match.matchedWith.title}
                         className="w-full h-32 object-cover rounded-lg"
                       />
@@ -77,10 +155,9 @@ export function MatchesView() {
                   </div>
                 </div>
 
-                {/* Matched User Info */}
                 <div className="flex items-center gap-3 mb-4">
                   <img
-                    src={match.matchedWith.userAvatar}
+                    src={match.matchedWith.userAvatar || 'https://via.placeholder.com/40'}
                     alt={match.matchedWith.userName}
                     className="w-10 h-10 rounded-full object-cover"
                   />
@@ -89,12 +166,6 @@ export function MatchesView() {
                     <p className="text-sm text-gray-500">wants to trade</p>
                   </div>
                 </div>
-
-                {/* Action Button */}
-                <button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-full font-medium hover:shadow-lg transition-shadow flex items-center justify-center gap-2">
-                  <MessageCircle className="w-5 h-5" />
-                  <span>Start Chat</span>
-                </button>
               </div>
             </div>
           ))}
