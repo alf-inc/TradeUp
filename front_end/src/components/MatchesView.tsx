@@ -1,17 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { MessageCircle, Clock, Check, X } from 'lucide-react';
 import { auth, db } from '../firebase/firebase'; 
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
 
 interface MatchNotification {
   id: string;
   userId: string;
   type: string;
+  status?: 'accepted' | 'rejected';
   createdAt: any;
   payload: {
     otherUserId: string;
-    itemId: string;        // The item YOU liked (theirs)
-    mutualItemId: string;  // The item THEY liked (yours)
+    itemId: string;
+    mutualItemId: string;
   };
 }
 
@@ -20,6 +21,7 @@ interface HydratedMatch {
   item: any;
   matchedWith: any;
   timestamp: Date;
+  status?: 'accepted' | 'rejected'; // Added status type
 }
 
 export function MatchesView() {
@@ -36,6 +38,52 @@ export function MatchesView() {
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     return `${diffDays}d ago`;
+  };
+
+  const handleStatusUpdate = async (matchId: string, newStatus: 'accepted' | 'rejected') => {
+    if (!auth.currentUser) return;
+
+    // 1. Optimistic UI Update: Update the status locally instead of removing it
+    setMatches((prev) => 
+      prev.map((m) => 
+        m.id === matchId ? { ...m, status: newStatus } : m
+      )
+    );
+
+    try {
+      // 2. Update MY notification status
+      const myNotificationRef = doc(db, "notifications", matchId);
+      await updateDoc(myNotificationRef, {
+        status: newStatus
+      });
+
+      // 3. IF I ACCEPTED, CHECK IF THEY ACCEPTED TOO
+      if (newStatus === 'accepted') {
+        // We need to find the notification sent to the OTHER user for this same match.
+        // logic: userId == otherUser AND payload.otherUserId == me
+        const q = query(
+          collection(db, "notifications"),
+          where("userId", "==", matchData.matchedWith.userId), // The other user
+          where("type", "==", "MUTUAL_MATCH"),
+          where("payload.otherUserId", "==", auth.currentUser.uid), // Me
+          where("payload.itemId", "==", matchData.item.id) // Ensure it's about the same item swap
+        );
+
+        const snapshot = await getDocs(q);
+        
+        if (!snapshot.empty) {
+          const theirNotification = snapshot.docs[0].data();
+          
+          if (theirNotification.status === 'accepted') {
+            // Both have accepted - we can consider this a confirmed match
+            // RYAN: This is where you'd ad the match to a "confirmedMatches" collection 
+        }
+      }
+    }
+
+  } catch (error) {
+    console.error("Failed to update match status:", error);
+  }
   };
 
   useEffect(() => {
@@ -71,7 +119,8 @@ export function MatchesView() {
               id: notif.id,
               timestamp: createdAtDate,
               item: { ...myItemSnap.data(), id: mutualItemId },
-              matchedWith: { ...theirItemSnap.data(), id: itemId }
+              matchedWith: { ...theirItemSnap.data(), id: itemId },
+              status: notif.status // Load existing status from DB
             };
           })
         );
@@ -124,6 +173,7 @@ export function MatchesView() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 mb-4">
+                  {/* Your Item */}
                   <div>
                     <p className="text-xs text-gray-500 mb-2">Your Item</p>
                     <div className="relative">
@@ -139,6 +189,7 @@ export function MatchesView() {
                     </div>
                   </div>
 
+                  {/* Matched Item */}
                   <div>
                     <p className="text-xs text-gray-500 mb-2">Trade For</p>
                     <div className="relative">
@@ -167,16 +218,43 @@ export function MatchesView() {
                   </div>
                 </div>
 
-                <div className="flex gap-3">
-                  <button className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-full font-medium hover:bg-gray-200 transition-colors flex items-center justify-center gap-2">
-                    <X className="w-5 h-5" />
-                    <span>Reject</span>
-                  </button>
-                  <button className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-full font-medium hover:shadow-lg transition-shadow flex items-center justify-center gap-2">
-                    <Check className="w-5 h-5" />
-                    <span>Accept</span>
-                  </button>
-                </div>
+                {/* --- Conditional Rendering Based on Status --- */}
+                {match.status ? (
+                  <div className={`w-full py-3 rounded-full font-medium text-center flex items-center justify-center gap-2 ${
+                    match.status === 'accepted' 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-red-100 text-red-700'
+                  }`}>
+                    {match.status === 'accepted' ? (
+                      <>
+                        <Check className="w-5 h-5" />
+                        <span>Accepted</span>
+                      </>
+                    ) : (
+                      <>
+                        <X className="w-5 h-5" />
+                        <span>Rejected</span>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={() => handleStatusUpdate(match.id, 'rejected')}
+                      className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-full font-medium hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <X className="w-5 h-5" />
+                      <span>Reject</span>
+                    </button>
+                    <button 
+                      onClick={() => handleStatusUpdate(match.id, 'accepted')}
+                      className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-full font-medium hover:shadow-lg transition-shadow flex items-center justify-center gap-2"
+                    >
+                      <Check className="w-5 h-5" />
+                      <span>Accept</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ))}
