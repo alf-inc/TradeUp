@@ -6,16 +6,14 @@ import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Button } from "./ui/button";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth, getMyProfile, saveMyProfile, saveNewItem, getUserItems, deleteItem } from "../firebase/firebase";
-
-type ProfileState = {
-  name: string;
-  photoURL: string;
-  bio: string;
-  // NEW:
-  location: { lat: number; lng: number };
-  radiusKm: number;
-};
+import {
+  auth,
+  getMyProfile,
+  saveMyProfile,
+  saveNewItem,
+  getUserItems,
+  deleteItem,
+} from "../firebase/firebase";
 
 export function ProfileView() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -36,29 +34,26 @@ export function ProfileView() {
   }, []);
 
   // Profile state (Firestore)
-  const [profile, setProfile] = useState<ProfileState>({
+  const [profile, setProfile] = useState<{
+    name: string;
+    photoURL: string;
+    bio: string;
+  }>({
     name: "My Profile",
     photoURL: "",
     bio: "",
-    location: currentUser.location, // fallback default
-    radiusKm: currentUser.radiusKm ?? 10, // fallback default
   });
 
-  // Edit form state
+  // Edit form state (URL + Bio)
   const [editBio, setEditBio] = useState("");
   const [editPhotoURL, setEditPhotoURL] = useState("");
   const [editName, setEditName] = useState("");
-
-  // NEW: edit radius + location
-  const [editRadiusKm, setEditRadiusKm] = useState<number>(profile.radiusKm);
-  const [editLat, setEditLat] = useState<string>(String(profile.location.lat));
-  const [editLng, setEditLng] = useState<string>(String(profile.location.lng));
 
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [saveError, setSaveError] = useState<string>("");
 
-  // Item loading + error
+  // NEW: Item loading + error
   const [loadingItems, setLoadingItems] = useState(false);
   const [itemsError, setItemsError] = useState("");
 
@@ -72,38 +67,28 @@ export function ProfileView() {
       setItemsError("");
 
       try {
-        const p: any = await getMyProfile(uid);
+        const p = await getMyProfile(uid);
 
-        const name = p?.name ?? "My Profile";
-        const bio = p?.bio ?? "";
-        const photoURL = p?.photoURL ?? "";
+        const name = p.name ?? "My Profile";
+        const bio = p.bio ?? "";
+        const photoURL = p.photoURL ?? "";
 
-        // NEW: location + radius (fallback to mock defaults)
-        const location = p?.location?.lat != null && p?.location?.lng != null
-          ? { lat: Number(p.location.lat), lng: Number(p.location.lng) }
-          : currentUser.location;
-
-        const radiusKm = p?.radiusKm != null ? Number(p.radiusKm) : (currentUser.radiusKm ?? 10);
-
-        setProfile({
+        setProfile((prev) => ({
+          ...prev,
           name,
           photoURL,
           bio,
-          location,
-          radiusKm,
-        });
-
+        }));
         setEditName(name);
         setEditBio(bio);
         setEditPhotoURL(photoURL);
 
-        setEditRadiusKm(radiusKm);
-        setEditLat(String(location.lat));
-        setEditLng(String(location.lng));
-
         // Load user's items
         const userItems = await getUserItems(uid);
+
+        // Optional: sort newest first if createdAt exists
         userItems.sort((a: any, b: any) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+
         setItems(userItems);
       } catch (error) {
         console.error("Error loading profile/items:", error);
@@ -118,7 +103,9 @@ export function ProfileView() {
   const handleDeleteItem = async (itemId: string) => {
     if (!confirm("Are you sure you want to delete this item?")) return;
     try {
-      await deleteItem(itemId);
+      await deleteItem(itemId); // Delete from Firestore
+
+      // Functional update prevents stale-state bugs
       setItems((prev) => prev.filter((item) => item.id !== itemId));
     } catch (e) {
       console.error("Failed to delete item", e);
@@ -130,11 +117,6 @@ export function ProfileView() {
     setEditName(profile.name);
     setEditBio(profile.bio);
     setEditPhotoURL(profile.photoURL);
-
-    setEditRadiusKm(profile.radiusKm);
-    setEditLat(String(profile.location.lat));
-    setEditLng(String(profile.location.lng));
-
     setIsEditingProfile(false);
     setSaveError("");
   };
@@ -150,45 +132,20 @@ export function ProfileView() {
       const newBio = editBio.trim();
       const newPhotoURL = editPhotoURL.trim();
 
-      // NEW: parse + validate location & radius
-      const lat = Number(editLat);
-      const lng = Number(editLng);
+      console.log("[US2] saving profile to firestore...", { newName, newBio, newPhotoURL });
 
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-        throw new Error("Latitude/Longitude must be valid numbers.");
-      }
-      if (lat < -90 || lat > 90) {
-        throw new Error("Latitude must be between -90 and 90.");
-      }
-      if (lng < -180 || lng > 180) {
-        throw new Error("Longitude must be between -180 and 180.");
-      }
+      await saveMyProfile(uid, { name: newName, bio: newBio, photoURL: newPhotoURL });
 
-      const radiusKm = Number(editRadiusKm);
-      const safeRadiusKm = [5, 10, 25].includes(radiusKm) ? radiusKm : 10;
-
-      const payload = {
+      setProfile((prev) => ({
+        ...prev,
         name: newName,
         bio: newBio,
         photoURL: newPhotoURL,
-        // NEW fields:
-        location: { lat, lng },
-        radiusKm: safeRadiusKm,
-      };
-
-      await saveMyProfile(uid, payload);
-
-      setProfile({
-        name: newName,
-        bio: newBio,
-        photoURL: newPhotoURL,
-        location: { lat, lng },
-        radiusKm: safeRadiusKm,
-      });
+      }));
 
       setIsEditingProfile(false);
     } catch (e: any) {
-      console.error("[Profile] save failed ❌", e);
+      console.error("[US2] save failed ❌", e);
       setSaveError(e?.message ?? String(e));
     } finally {
       setSavingProfile(false);
@@ -204,9 +161,7 @@ export function ProfileView() {
     return (
       <div className="p-6">
         <div className="bg-white rounded-2xl p-6 shadow-lg">
-          <h2 className="text-xl font-bold mb-2">
-            {(profile.name?.trim() ? profile.name : "My Profile").slice(0, 11)}
-          </h2>
+          <h2 className="text-xl font-bold mb-2">{(profile.name?.trim() ? profile.name : "My Profile").slice(0, 11)}</h2>
           <p className="text-gray-600">Please log in to edit your profile.</p>
         </div>
       </div>
@@ -232,7 +187,6 @@ export function ProfileView() {
                   }}
                 />
               </div>
-
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-2">
                   <h2 className="text-2xl font-bold">{profile.name}</h2>
@@ -241,11 +195,6 @@ export function ProfileView() {
                       setEditName(profile.name);
                       setEditBio(profile.bio);
                       setEditPhotoURL(profile.photoURL);
-
-                      setEditRadiusKm(profile.radiusKm);
-                      setEditLat(String(profile.location.lat));
-                      setEditLng(String(profile.location.lng));
-
                       setSaveError("");
                       setIsEditingProfile(true);
                     }}
@@ -254,21 +203,9 @@ export function ProfileView() {
                     <Edit2 className="w-4 h-4 text-gray-600" />
                   </button>
                 </div>
-
                 <p className="text-gray-600 italic">
                   {profile.bio || "No bio yet. Add one to help people know you better!"}
                 </p>
-
-                {/* NEW: show radius + location summary */}
-                <div className="mt-3 text-sm text-gray-600">
-                  <div>
-                    <span className="font-semibold">Discovery radius:</span> {profile.radiusKm} km
-                  </div>
-                  <div>
-                    <span className="font-semibold">Location:</span>{" "}
-                    {profile.location.lat.toFixed(4)}, {profile.location.lng.toFixed(4)}
-                  </div>
-                </div>
               </div>
             </div>
           ) : (
@@ -308,11 +245,11 @@ export function ProfileView() {
                   />
                 </div>
 
-                {/* Edit Name */}
+                {/*Edit Name*/}
                 <div className="w-full space-y-2">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Edit Name
-                  </label>
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Edit Name
+                </label>
                   <Input
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
@@ -322,7 +259,7 @@ export function ProfileView() {
                   />
                 </div>
 
-                {/* Edit Photo */}
+                {/*Edit Photo*/}
                 <div className="w-full space-y-2">
                   <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Profile Photo URL
@@ -337,49 +274,6 @@ export function ProfileView() {
                     Paste an image link. We store it in Firestore (no Storage / billing required).
                   </p>
                 </div>
-              </div>
-
-              {/* NEW: Radius selector */}
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Discovery Radius
-                </label>
-                <select
-                  value={editRadiusKm}
-                  onChange={(e) => setEditRadiusKm(Number(e.target.value))}
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
-                >
-                  <option value={5}>5 km</option>
-                  <option value={10}>10 km</option>
-                  <option value={25}>25 km</option>
-                </select>
-                <p className="text-xs text-gray-500">
-                  This controls which listings appear in your feed based on distance.
-                </p>
-              </div>
-
-              {/* NEW: Location inputs */}
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Location (Latitude / Longitude)
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Input
-                    value={editLat}
-                    onChange={(e) => setEditLat(e.target.value)}
-                    placeholder="Latitude (e.g., 43.6532)"
-                    className="text-sm"
-                  />
-                  <Input
-                    value={editLng}
-                    onChange={(e) => setEditLng(e.target.value)}
-                    placeholder="Longitude (e.g., -79.3832)"
-                    className="text-sm"
-                  />
-                </div>
-                <p className="text-xs text-gray-500">
-                  For demo purposes you can enter coordinates directly. (Later you can switch to postal code.)
-                </p>
               </div>
 
               {/* Bio */}
@@ -397,6 +291,7 @@ export function ProfileView() {
                 <div className="text-xs text-gray-400 text-right">{editBio.length}/160</div>
               </div>
 
+              {/* Error */}
               {saveError && <div className="text-sm text-red-600">Save failed: {saveError}</div>}
 
               <Button
@@ -442,9 +337,13 @@ export function ProfileView() {
           </div>
 
           {loadingItems ? (
-            <div className="bg-white rounded-2xl p-6 shadow-lg text-gray-600">Loading your items...</div>
+            <div className="bg-white rounded-2xl p-6 shadow-lg text-gray-600">
+              Loading your items...
+            </div>
           ) : itemsError ? (
-            <div className="bg-white rounded-2xl p-6 shadow-lg text-red-600">{itemsError}</div>
+            <div className="bg-white rounded-2xl p-6 shadow-lg text-red-600">
+              {itemsError}
+            </div>
           ) : items.length === 0 ? (
             <div className="bg-white rounded-2xl p-8 shadow-lg text-center">
               <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -520,13 +419,14 @@ export function ProfileView() {
                 userId: uid,
                 userName: profile.name,
                 userAvatar: profile.photoURL || currentUser.avatar,
-                // NEW: attach location so distance filtering works later
-                location: profile.location,
                 createdAt: Date.now(),
               };
 
               const newId = await saveNewItem(newItemData);
+
+              // Functional update to avoid stale state
               setItems((prev) => [{ ...newItemData, id: newId }, ...prev]);
+
               setIsAddModalOpen(false);
             } catch (error) {
               console.error("Failed to add item:", error);

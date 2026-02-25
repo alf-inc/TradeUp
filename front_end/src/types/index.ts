@@ -1,6 +1,3 @@
-import type { Location } from "./location";
-export type { Location } from "./location";
-
 export type Condition = "new" | "like-new" | "good" | "fair";
 export type NotificationType = "MUTUAL_MATCH";
 
@@ -14,7 +11,6 @@ export interface Item {
   userId: string;
   userName: string;
   userAvatar: string;
-  location: Location;
 }
 
 export interface UserProfile {
@@ -23,8 +19,6 @@ export interface UserProfile {
   avatar: string;
   bio: string;
   items: Item[];
-  location: Location;
-  radiusKm?: number;
 }
 
 export interface Match {
