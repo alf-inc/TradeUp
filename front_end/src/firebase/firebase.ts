@@ -82,9 +82,12 @@ export async function getFeedItems(options: GetFeedOptions = {}) {
 }
 
 export type UserProfile = {
-  name?: string
+  name?: string;
   bio?: string;
   photoURL?: string;
+  average_rating?: number;
+  ratings_received_count?: number;
+  completed_trade_count?: number;
 };
 
 // Getting user profile
