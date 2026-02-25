@@ -1,5 +1,6 @@
 export type Condition = "new" | "like-new" | "good" | "fair";
 export type NotificationType = "MUTUAL_MATCH";
+export type Location = { lat: number; lng: number };
 
 export interface Item {
   id: string;
