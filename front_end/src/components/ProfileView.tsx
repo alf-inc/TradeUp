@@ -38,10 +38,16 @@ export function ProfileView() {
     name: string;
     photoURL: string;
     bio: string;
+    averageRating: number;
+    ratingsReceivedCount: number;
+    completedTradeCount: number;
   }>({
     name: "My Profile",
     photoURL: "",
     bio: "",
+    averageRating: 0,
+    ratingsReceivedCount: 0,
+    completedTradeCount: 0,
   });
 
   // Edit form state (URL + Bio)
@@ -72,12 +78,21 @@ export function ProfileView() {
         const name = p.name ?? "My Profile";
         const bio = p.bio ?? "";
         const photoURL = p.photoURL ?? "";
+        const averageRating =
+          typeof p.average_rating === "number" ? p.average_rating : 0;
+        const ratingsReceivedCount =
+          typeof p.ratings_received_count === "number" ? p.ratings_received_count : 0;
+        const completedTradeCount =
+          typeof p.completed_trade_count === "number" ? p.completed_trade_count : 0;
 
         setProfile((prev) => ({
           ...prev,
           name,
           photoURL,
           bio,
+          averageRating,
+          ratingsReceivedCount,
+          completedTradeCount,
         }));
         setEditName(name);
         setEditBio(bio);
@@ -206,6 +221,14 @@ export function ProfileView() {
                 <p className="text-gray-600 italic">
                   {profile.bio || "No bio yet. Add one to help people know you better!"}
                 </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Rating:{" "}
+                  <span className="font-semibold text-gray-700">
+                    {profile.averageRating.toFixed(2)}/10
+                  </span>{" "}
+                  ({profile.ratingsReceivedCount}{" "}
+                  {profile.ratingsReceivedCount === 1 ? "rating" : "ratings"})
+                </p>
               </div>
             </div>
           ) : (
@@ -316,7 +339,7 @@ export function ProfileView() {
                 <p className="text-sm text-gray-500">Matches</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-purple-600">8</p>
+                <p className="text-2xl font-bold text-purple-600">{profile.completedTradeCount}</p>
                 <p className="text-sm text-gray-500">Trades</p>
               </div>
             </div>
