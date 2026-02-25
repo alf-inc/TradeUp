@@ -6,6 +6,8 @@ import { Heart, User, MessageCircle } from 'lucide-react';
 
 import { auth, getLikedItems } from "./firebase/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { NotificationsBell } from "./components/NotificationsBell";
+
 
 export default function App() {
 
@@ -41,10 +43,16 @@ export default function App() {
     <div className={`min-h-screen bg-blue-50`}>
       <div className="max-w-md mx-auto h-screen flex flex-col">
         {/* Header */}
-        <header className="bg-White shadow-sm p-4 relative z-10">
-          <h1 className="text-2xl font-bold text-center bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-            TradeUp
-          </h1>
+        <header className="bg-white shadow-sm p-4 relative z-10">
+          <div className="relative flex items-center justify-center">
+            <h1 className="text-2xl font-bold text-center bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              TradeUp
+            </h1>
+
+            <div className="absolute right-0">
+              <NotificationsBell userId={userId} />
+            </div>
+          </div>
         </header>
 
         {/* Main Content */}

@@ -1,4 +1,4 @@
-import type { Location } from "../types/location";
+import type { Location } from "../types";
 
 // US8.1 distance utility implementation
 
