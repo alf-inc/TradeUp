@@ -77,6 +77,27 @@ export function MatchesView() {
         if (theirNotification.status === 'accepted') {
           // At this point - we consider this a confirmed match
           // RYAN: This is where you would add a confirmed match to the collection
+
+
+          // Confirm the trade on the backend (creates completed_trades if needed)
+          try {
+            const res = await fetch(
+              `http://localhost:8000/trades/confirm?notificationId=${matchId}`,
+              { method: "POST" }
+            );
+
+            if (!res.ok) {
+              const text = await res.text();
+              console.error("Confirm trade failed:", text);
+            } else {
+              const data = await res.json();
+              console.log("Trade confirm result:", data);
+            }
+          } catch (e) {
+            console.error("Confirm trade request error:", e);
+          }
+
+          
         }
       }
     }

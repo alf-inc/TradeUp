@@ -18,3 +18,5 @@ app.add_middleware(
 
 app.include_router(matches.router)
 app.include_router(notifications.router)
+app.include_router(ratings.router)
+app.include_router(trades.router)
