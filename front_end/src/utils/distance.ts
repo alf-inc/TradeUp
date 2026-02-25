@@ -1,5 +1,7 @@
 import type { Location } from "../types/location";
 
+// US8.1 distance utility implementation
+
 const EARTH_RADIUS_KM = 6371;
 
 const toRad = (deg: number) => (deg * Math.PI) / 180;
