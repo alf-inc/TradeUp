@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import matches,notifications
+from app.routes import matches, notifications, offers, ratings, trades
 
 app = FastAPI()
 
@@ -20,3 +20,4 @@ app.include_router(matches.router)
 app.include_router(notifications.router)
 app.include_router(ratings.router)
 app.include_router(trades.router)
+app.include_router(offers.router)
