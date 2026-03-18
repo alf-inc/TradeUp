@@ -1,5 +1,23 @@
 export type Condition = "new" | "like-new" | "good" | "fair";
 export type NotificationType = "MUTUAL_MATCH";
+
+export interface MatchItem {
+  userA: string;
+  userB: string;
+  itemA: string;
+  itemATitle: string;
+  itemAImage: string;
+  itemACategory: string;
+  itemB: string;
+  itemBTitle: string;
+  itemBImage: string;
+  itemBCategory: string;
+}
+
+export interface MatchCheckResponse {
+  matchFound: boolean;
+  matches: MatchItem[];
+}
 export type Location = { lat: number; lng: number };
 
 export interface Item {

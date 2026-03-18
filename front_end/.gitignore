@@ -38,3 +38,5 @@ logs/
 *.psd
 *.fig
 
+# claude
+*.claude

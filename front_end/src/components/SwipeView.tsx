@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
-import { Item } from '../types';
+import { Item, MatchItem } from '../types';
 import { Heart, Package, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getFeedItems, auth, addLikedItem, removeLikedItem } from '../firebase/firebase';
+import { MatchPopupModal } from './MatchPopupModal';
 
 
 type SwipeViewProps = {
@@ -18,7 +19,10 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
   const [imageTrackById, setImageTrackById] = useState<Record<string, number>>({});
   const [imageNoTransitionById, setImageNoTransitionById] = useState<Record<string, boolean>>({});
   const [imageTransitioningById, setImageTransitioningById] = useState<Record<string, boolean>>({});
+  const [matchPopupData, setMatchPopupData] = useState<MatchItem[] | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+
 
   useEffect(() => {
     (async () => {
@@ -75,12 +79,16 @@ const handleLike = async () => {
     if (alreadyLiked) {
       await removeLikedItem(uid, itemId);
     } else {
-      await addLikedItem(uid, itemId);  
+      await addLikedItem(uid, itemId);
       try {
-            await fetch(
+            const res = await fetch(
             `http://127.0.0.1:8000/matches/check-and-notify?likerUserId=${uid}&likedItemId=${itemId}`,
             { method: "POST" }
             );
+            const data = await res.json();
+            if (data.matchFound && data.matches?.length > 0) {
+              setMatchPopupData(data.matches);
+            }
         } catch (serverErr) {
             console.warn("Backend notification failed (but like was saved):", serverErr);
         }    
@@ -336,6 +344,18 @@ useEffect(() => {
         ))}
       </div>
 
+      {/* Match Popup Modal */}
+      {matchPopupData && (
+        <MatchPopupModal
+          matches={matchPopupData}
+          onCreateOffer={(selectedItemIds) => {
+            // Task 14.3 will implement the actual offer creation API call
+            console.log('Create offer with items:', selectedItemIds);
+            setMatchPopupData(null);
+          }}
+          onCancel={() => setMatchPopupData(null)}
+        />
+      )}
     </div>
   );
 }
