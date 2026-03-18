@@ -3,7 +3,7 @@ import { Item, MatchItem } from '../types';
 import { Heart, Package, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getFeedItems, auth, addLikedItem, removeLikedItem } from '../firebase/firebase';
 import { MatchPopupModal } from './MatchPopupModal';
-
+import { useCreateOffer } from '../utils/useCreateOffer';
 
 type SwipeViewProps = {
   userId: string | null;
@@ -15,14 +15,15 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
   const [items, setItems] = useState<Item[]>([]);
   const [order, setOrder] = useState<number[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  // const [likedItems, setLikedItems] = useState<string[]>([]);
   const [imageTrackById, setImageTrackById] = useState<Record<string, number>>({});
   const [imageNoTransitionById, setImageNoTransitionById] = useState<Record<string, boolean>>({});
   const [imageTransitioningById, setImageTransitioningById] = useState<Record<string, boolean>>({});
   const [matchPopupData, setMatchPopupData] = useState<MatchItem[] | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-
+  // ── Offer creation hook ────────────────────────────────────────────────────
+  const { createOffer } = useCreateOffer();
+  // ──────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     (async () => {
@@ -31,9 +32,6 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
         console.warn("No user logged in");
         return;
       }
-
-      // const liked = await getLikedItems(uid);
-      // setLikedItems(liked);
 
       const { items: feedItems } = await getFeedItems({
         excludeUserId: uid ?? undefined,
@@ -50,6 +48,7 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
   const currentItem = orderedItems[currentIndex];
 
   const isCurrentLiked = currentItem ? likedItems.includes(currentItem.id) : false;
+
   const getTrackIndex = (itemId: string, total: number) => {
     const raw = imageTrackById[itemId] ?? 1;
     if (!Number.isFinite(raw)) return 1;
@@ -58,52 +57,51 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
     return raw;
   };
 
-const handleLike = async () => {
-  if (!currentItem) return;
+  const handleLike = async () => {
+    if (!currentItem) return;
 
-  const uid = userId ?? auth.currentUser?.uid;
-  if (!uid) {
-    console.warn("No user logged in");
-    return;
-  }
+    const uid = userId ?? auth.currentUser?.uid;
+    if (!uid) {
+      console.warn("No user logged in");
+      return;
+    }
 
-  const itemId = currentItem.id;
-  const alreadyLiked = likedItems.includes(itemId);
+    const itemId = currentItem.id;
+    const alreadyLiked = likedItems.includes(itemId);
 
-  // Optimistic UI update (feels instant)
-  setLikedItems((prev) =>
-    alreadyLiked ? prev.filter((id) => id !== itemId) : [...prev, itemId]
-  );
+    // Optimistic UI update (feels instant)
+    setLikedItems((prev) =>
+      alreadyLiked ? prev.filter((id) => id !== itemId) : [...prev, itemId]
+    );
 
-  try {
-    if (alreadyLiked) {
-      await removeLikedItem(uid, itemId);
-    } else {
-      await addLikedItem(uid, itemId);
-      try {
-            const res = await fetch(
+    try {
+      if (alreadyLiked) {
+        await removeLikedItem(uid, itemId);
+      } else {
+        await addLikedItem(uid, itemId);
+        try {
+          const res = await fetch(
             `http://127.0.0.1:8000/matches/check-and-notify?likerUserId=${uid}&likedItemId=${itemId}`,
             { method: "POST" }
-            );
-            const data = await res.json();
-            if (data.matchFound && data.matches?.length > 0) {
-              setMatchPopupData(data.matches);
-            }
+          );
+          const data = await res.json();
+          console.log('Match response:', data);
+          if (data.matches?.length > 0) {
+            setMatchPopupData(data.matches);
+          }
         } catch (serverErr) {
-            console.warn("Backend notification failed (but like was saved):", serverErr);
-        }    
+          console.warn("Backend notification failed (but like was saved):", serverErr);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to update liked items:", e);
+
+      // Rollback if DB write fails
+      setLikedItems((prev) =>
+        alreadyLiked ? [...prev, itemId] : prev.filter((id) => id !== itemId)
+      );
     }
-  } catch (e) {
-    console.error("Failed to update liked items:", e);
-
-    // rollback if DB write fails
-    setLikedItems((prev) =>
-      alreadyLiked ? [...prev, itemId] : prev.filter((id) => id !== itemId)
-    );
-  }
-};
-
-
+  };
 
   // Handle scroll to change items
   useEffect(() => {
@@ -153,17 +151,17 @@ const handleLike = async () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentItem]);
 
-useEffect(() => {
-  if (items.length <= 1 || order.length === 0) return;
-  if (currentIndex >= order.length - 2) {
-    setOrder((prev) => appendRandomOrder(items, prev));
-  }
-}, [currentIndex, items, order]);
+  useEffect(() => {
+    if (items.length <= 1 || order.length === 0) return;
+    if (currentIndex >= order.length - 2) {
+      setOrder((prev) => appendRandomOrder(items, prev));
+    }
+  }, [currentIndex, items, order]);
 
   return (
     <div className="h-full relative">
       {/* Scrollable Content Container */}
-      <div 
+      <div
         ref={containerRef}
         className="h-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
@@ -290,10 +288,10 @@ useEffect(() => {
                   </button>
                 </>
               )}
-              
+
               {/* Gradient Overlays */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40 pointer-events-none" />
-              
+
               {/* Top Info */}
               <div className="absolute top-4 left-4 right-20">
                 <div className="flex items-center gap-3 mb-2">
@@ -304,10 +302,6 @@ useEffect(() => {
                   />
                   <div className="text-white">
                     <p className="font-bold">{item.userName}</p>
-                    {/* In future cases, set up if user wants to trade or sell for cash etc. 
-                      as of now, assume user always wants to trade (since this is the main idea of the app)
-                    */}
-                    {/* <p className="text-sm text-white/80">Wants to trade</p> */}
                   </div>
                 </div>
               </div>
@@ -316,7 +310,7 @@ useEffect(() => {
               <div className="absolute bottom-5 left-4 right-16 text-white">
                 <h3 className="text-2xl font-bold mb-2">{item.title}</h3>
                 <p className="text-white/90 text-sm mb-3 line-clamp-3">{item.description}</p>
-                
+
                 <div className="flex items-center gap-2">
                   <div className="bg-white/90 text-gray-900 backdrop-blur-sm px-3 py-1.5 rounded-full text-sm font-medium">
                     {item.category}
@@ -333,7 +327,7 @@ useEffect(() => {
                 onClick={handleLike}
                 className="absolute right-4 bottom-24 h-12 w-12 bg-white/20 backdrop-blur-md rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform group"
               >
-                <Heart 
+                <Heart
                   className={`w-6 h-6 transition-all group-hover:text-red-500 group-hover:fill-red-500 ${
                     isCurrentLiked ? 'text-red-500 fill-red-500' : 'text-gray-400 fill-gray-400'
                   }`}
@@ -348,9 +342,17 @@ useEffect(() => {
       {matchPopupData && (
         <MatchPopupModal
           matches={matchPopupData}
-          onCreateOffer={(selectedItemIds) => {
-            // Task 14.3 will implement the actual offer creation API call
-            console.log('Create offer with items:', selectedItemIds);
+          onCreateOffer={async (selectedItemIds) => {
+            const uid = userId ?? auth.currentUser?.uid;
+            if (!uid || !matchPopupData) return;
+
+            await createOffer({
+              fromUserId: uid,
+              toUserId: matchPopupData[0].userB,
+              offeredItemIds: selectedItemIds,
+              requestedItemId: matchPopupData[0].itemB,
+            });
+
             setMatchPopupData(null);
           }}
           onCancel={() => setMatchPopupData(null)}
@@ -384,4 +386,3 @@ function appendRandomOrder(items: Item[], currentOrder: number[]) {
 
   return [...currentOrder, ...nextBatch];
 }
-
