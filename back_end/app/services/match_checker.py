@@ -18,7 +18,7 @@ def check_match_only(db, liker_user_id: str, liked_item_id: str):
 
     # Safety: prevent self-matching
     if owner_user_id == liker_user_id:
-        return {"matches": []}
+        return {"matchFound": False, "matches": []}
 
     # 2) Fetch all items owned by the liker
     liker_items_stream = (
@@ -29,31 +29,41 @@ def check_match_only(db, liker_user_id: str, liked_item_id: str):
 
     liker_item_ids = [doc.id for doc in liker_items_stream]
     if not liker_item_ids:
-        return {"matches": []}
+        return {"matchFound": False, "matches": []}
 
     liker_item_set = set(liker_item_ids)
 
     # 3) Fetch the item owner's liked items
     owner_user_snap = db.collection("users").document(owner_user_id).get()
     if not owner_user_snap.exists:
-        return {"matches": []}
+        return {"matchFound": False, "matches": []}
 
     owner_likes = owner_user_snap.to_dict().get("liked_items", [])
+    if not owner_likes:
+        return {"matchFound": False, "matches": []}
 
     # 4) Find mutual likes
     mutual_item_ids = [
         item_id for item_id in owner_likes if item_id in liker_item_set
     ]
 
-    # 5) Build response
-    matches = [
-        {
+    # 5) Build response with enriched item details
+    matches = []
+    for item_id in mutual_item_ids:
+        item_a_snap = db.collection("items").document(item_id).get()
+        item_a = item_a_snap.to_dict() if item_a_snap.exists else {}
+
+        matches.append({
             "userA": liker_user_id,
             "userB": owner_user_id,
             "itemA": item_id,
-            "itemB": liked_item_id
-        }
-        for item_id in mutual_item_ids
-    ]
+            "itemATitle": item_a.get("title", ""),
+            "itemAImage": item_a.get("imageUrl", ""),
+            "itemACategory": item_a.get("category", ""),
+            "itemB": liked_item_id,
+            "itemBTitle": liked_item.get("title", ""),
+            "itemBImage": liked_item.get("imageUrl", ""),
+            "itemBCategory": liked_item.get("category", ""),
+        })
 
-    return {"matches": matches}
+    return {"matchFound": len(matches) > 0, "matches": matches}

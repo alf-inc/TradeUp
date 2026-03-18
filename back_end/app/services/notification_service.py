@@ -50,3 +50,38 @@ def create_mutual_match_notification(
 
     doc_ref.set(data, merge=True)
     return {"id": doc_id, **data}
+
+
+def create_offer_notification(
+    db,
+    receiver_user_id: str,
+    from_user_id: str,
+    offer_id: str,
+    offered_items: list,
+    requested_item_id: str,
+    requested_item_title: str,
+) -> Dict[str, Any]:
+    doc_id = f"{receiver_user_id}__OFFER_RECEIVED__{offer_id}"
+    doc_ref = db.collection("notifications").document(doc_id)
+
+    from_user_snap = db.collection("users").document(from_user_id).get()
+    from_user = from_user_snap.to_dict() if from_user_snap.exists else {}
+
+    data = {
+        "userId": receiver_user_id,
+        "type": "OFFER_RECEIVED",
+        "read": False,
+        "createdAt": firestore.SERVER_TIMESTAMP,
+        "payload": {
+            "fromUserId": from_user_id,
+            "fromUserName": from_user.get("name", ""),
+            "fromUserAvatar": from_user.get("photoURL", ""),
+            "offerId": offer_id,
+            "offeredItems": offered_items,
+            "requestedItemId": requested_item_id,
+            "requestedItemTitle": requested_item_title,
+        },
+    }
+
+    doc_ref.set(data, merge=True)
+    return {"id": doc_id, **data}
