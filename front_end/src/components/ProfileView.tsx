@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { currentUser } from "../data/mockData";
-import { Plus, Edit2, Trash2, X, Check, History } from "lucide-react";
+import { Plus, Edit2, Trash2, X, Check, History, RefreshCw } from "lucide-react";
 import { AddItemModal } from "./AddItemModal";
 import { TradeHistoryCard } from "./TradeHistoryCard";
 import { Input } from "./ui/input";
@@ -19,6 +19,7 @@ import {
   type Location,
 } from "../firebase/firebase";
 import type { CompletedTrade } from "../types";
+import { fetchTradeHistory } from "../api/trades";
 
 // Helper to get current browser/device location
 function getBrowserLocation(): Promise<Location> {
@@ -103,10 +104,10 @@ export function ProfileView() {
   const [loadingItems, setLoadingItems] = useState(false);
   const [itemsError, setItemsError] = useState("");
 
-  // Trade history state (data fetching will be wired up in Task 12.2)
   const [tradeHistory, setTradeHistory] = useState<CompletedTrade[]>([]);
   const [loadingTrades, setLoadingTrades] = useState(false);
   const [tradesError, setTradesError] = useState("");
+  const [tradesFetchKey, setTradesFetchKey] = useState(0);
 
   // Load profile + items from Firestore when uid is available
   useEffect(() => {
@@ -175,6 +176,25 @@ export function ProfileView() {
       }
     })();
   }, [uid]);
+
+  // Fetch trade history from backend
+  useEffect(() => {
+    if (!uid) return;
+
+    (async () => {
+      setLoadingTrades(true);
+      setTradesError("");
+      try {
+        const trades = await fetchTradeHistory(uid);
+        setTradeHistory(trades);
+      } catch (e) {
+        console.error("Failed to load trade history:", e);
+        setTradesError("Could not load trade history. Please try again.");
+      } finally {
+        setLoadingTrades(false);
+      }
+    })();
+  }, [uid, tradesFetchKey]);
 
   const handleDeleteItem = async (itemId: string) => {
     if (!confirm("Are you sure you want to delete this item?")) return;
@@ -621,6 +641,14 @@ export function ProfileView() {
           <TabsContent value="history">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold">Trade History</h3>
+              <button
+                onClick={() => setTradesFetchKey((k) => k + 1)}
+                disabled={loadingTrades}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50"
+                title="Refresh trade history"
+              >
+                <RefreshCw className={`w-4 h-4 text-gray-500 ${loadingTrades ? "animate-spin" : ""}`} />
+              </button>
             </div>
 
             {loadingTrades ? (

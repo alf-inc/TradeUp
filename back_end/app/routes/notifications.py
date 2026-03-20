@@ -1,5 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from app.core.firebase import db
+from google.cloud import firestore
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -21,3 +22,20 @@ def get_notifications(userId: str, unreadOnly: bool = False, limit: int = 50):
         out.append(item)
 
     return {"notifications": out}
+
+@router.patch("/{notification_id}/read")
+def mark_notification_read(notification_id: str, userId: str):
+    ref = db.collection("notifications").document(notification_id)
+    snap = ref.get()
+    if not snap.exists:
+        raise HTTPException(status_code=404, detail="Notification not found")
+
+    data = snap.to_dict()
+    if data.get("userId") != userId:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    ref.set(
+        {"read": True, "readAt": firestore.SERVER_TIMESTAMP},
+        merge=True
+    )
+    return {"ok": True, "id": notification_id}
