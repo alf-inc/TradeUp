@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { Mail, Lock, User, Eye, EyeOff } from "lucide-react";
+import {
+  Mail,
+  Lock,
+  User,
+  Eye,
+  EyeOff,
+  MapPin,
+  LocateFixed,
+} from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -8,7 +16,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "./ui/card";
@@ -17,36 +24,122 @@ import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
 } from "firebase/auth";
-import { auth } from "../firebase/firebase";
-
+import { auth, db, geocodeLocationQuery, type Location } from "../firebase/firebase";
 import { doc, setDoc } from "firebase/firestore";
-import { db } from "../firebase/firebase";
 
 interface LoginRegisterScreenProps {
   onLogin: () => void;
+}
+
+const DEFAULT_RADIUS_KM = 25;
+
+function getBrowserLocation(): Promise<Location> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Geolocation is not supported by this browser."));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      (error) => {
+        if (error.code === error.PERMISSION_DENIED) {
+          reject(new Error("Location permission was denied."));
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          reject(new Error("Your location could not be determined."));
+        } else if (error.code === error.TIMEOUT) {
+          reject(new Error("Location request timed out."));
+        } else {
+          reject(new Error("Failed to get your current location."));
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000,
+      }
+    );
+  });
 }
 
 export function LoginRegisterScreen({ onLogin }: LoginRegisterScreenProps) {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [email, setEmail] = useState("");
-
   const [name, setName] = useState("");
-
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [locationQuery, setLocationQuery] = useState("");
+  const [locationLabel, setLocationLabel] = useState("");
+  const [resolvedLocation, setResolvedLocation] = useState<Location | null>(null);
+  const [resolvingLocation, setResolvingLocation] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  const handleUseCurrentLocation = async () => {
+    setError(null);
+    setMessage(null);
+
+    try {
+      setResolvingLocation(true);
+      const coords = await getBrowserLocation();
+
+      setResolvedLocation(coords);
+      setLocationLabel("Current device location");
+      setMessage("Current location captured successfully.");
+    } catch (err: any) {
+      setError(err?.message ?? "Failed to get current location.");
+    } finally {
+      setResolvingLocation(false);
+    }
+  };
+
+  const handleResolveManualLocation = async () => {
+    const query = locationQuery.trim();
+    if (!query) {
+      setError("Enter a city, address, or postal code first.");
+      return;
+    }
+
+    setError(null);
+    setMessage(null);
+
+    try {
+      setResolvingLocation(true);
+      const result = await geocodeLocationQuery(query);
+
+      setResolvedLocation({ lat: result.lat, lng: result.lng });
+      setLocationLabel(result.label);
+      setMessage(`Location found: ${result.label}`);
+    } catch (err: any) {
+      setError(err?.message ?? "Could not find that location.");
+    } finally {
+      setResolvingLocation(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
+    setMessage(null);
 
     if (mode === "register" && password !== confirmPassword) {
       setError("Passwords do not match.");
+      return;
+    }
+
+    if (mode === "register" && !resolvedLocation) {
+      setError("Please set your location before registering.");
       return;
     }
 
@@ -54,19 +147,21 @@ export function LoginRegisterScreen({ onLogin }: LoginRegisterScreenProps) {
       setLoading(true);
 
       if (mode === "register") {
-        // await createUserWithEmailAndPassword(auth, email, password);
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         const user = cred.user;
 
-      await setDoc(doc(db, "users", user.uid), {
-        userId: user.uid,
-        name: name,
-        email: user.email ?? "",
-        bio: "",
-        photoURL: user.photoURL ?? "",
-        liked_items: [],
-        createdAt: Date.now(),
-      });
+        await setDoc(doc(db, "users", user.uid), {
+          userId: user.uid,
+          name: name.trim(),
+          email: user.email ?? "",
+          bio: "",
+          photoURL: user.photoURL ?? "",
+          liked_items: [],
+          createdAt: Date.now(),
+          location: resolvedLocation,
+          locationLabel: locationLabel || locationQuery.trim() || "Unknown location",
+          radiusKm: DEFAULT_RADIUS_KM,
+        });
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
@@ -130,7 +225,11 @@ export function LoginRegisterScreen({ onLogin }: LoginRegisterScreenProps) {
 
           <Tabs
             value={mode}
-            onValueChange={(v) => setMode(v as "login" | "register")}
+            onValueChange={(v) => {
+              setMode(v as "login" | "register");
+              setError(null);
+              setMessage(null);
+            }}
             className="w-full"
           >
             <TabsList className="grid w-full grid-cols-2">
@@ -266,11 +365,11 @@ export function LoginRegisterScreen({ onLogin }: LoginRegisterScreenProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirm Password</Label>
+                  <Label htmlFor="register-confirm-password">Confirm Password</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                     <Input
-                      id="confirm-password"
+                      id="register-confirm-password"
                       type={showConfirmPassword ? "text" : "password"}
                       placeholder="••••••••"
                       className="pl-10 pr-10"
@@ -280,9 +379,7 @@ export function LoginRegisterScreen({ onLogin }: LoginRegisterScreenProps) {
                     />
                     <button
                       type="button"
-                      onClick={() =>
-                        setShowConfirmPassword(!showConfirmPassword)
-                      }
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                       className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
                     >
                       {showConfirmPassword ? (
@@ -294,35 +391,63 @@ export function LoginRegisterScreen({ onLogin }: LoginRegisterScreenProps) {
                   </div>
                 </div>
 
-                <div className="flex items-start space-x-2">
-                  <input type="checkbox" className="mt-1 rounded" required />
-                  <span className="text-sm text-gray-600">
-                    I agree to the{" "}
-                    <a href="#" className="text-indigo-600 hover:underline">
-                      Terms of Service
-                    </a>{" "}
-                    and{" "}
-                    <a href="#" className="text-indigo-600 hover:underline">
-                      Privacy Policy
-                    </a>
-                  </span>
+                <div className="space-y-3 rounded-xl border p-4 bg-gray-50">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-gray-500" />
+                    <Label className="text-sm font-medium">Location</Label>
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleUseCurrentLocation}
+                    disabled={loading || resolvingLocation}
+                  >
+                    <LocateFixed className="h-4 w-4 mr-2" />
+                    {resolvingLocation ? "Getting location..." : "Use Current Location"}
+                  </Button>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="register-location">Or enter a city, address, or postal code</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="register-location"
+                        type="text"
+                        placeholder="Toronto, ON"
+                        value={locationQuery}
+                        onChange={(e) => setLocationQuery(e.target.value)}
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={handleResolveManualLocation}
+                        disabled={loading || resolvingLocation}
+                      >
+                        Resolve
+                      </Button>
+                    </div>
+                  </div>
+
+                  {resolvedLocation && (
+                    <div className="text-sm text-gray-600 rounded-lg bg-white border p-3">
+                      <div className="font-medium text-gray-800">{locationLabel}</div>
+                      <div>
+                        lat: {resolvedLocation.lat.toFixed(6)}, lng: {resolvedLocation.lng.toFixed(6)}
+                      </div>
+                      <div>Default radius: {DEFAULT_RADIUS_KM} km</div>
+                    </div>
+                  )}
                 </div>
 
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Loading..." : "Create Account"}
+                <Button type="submit" className="w-full" disabled={loading || resolvingLocation}>
+                  {loading ? "Creating Account..." : "Create Account"}
                 </Button>
               </form>
             </TabsContent>
           </Tabs>
         </CardContent>
-
-        <CardFooter className="flex justify-center border-t pt-4">
-          <p className="text-sm text-gray-600">
-            Secure login powered by encryption
-          </p>
-        </CardFooter>
       </Card>
     </div>
   );
 }
-

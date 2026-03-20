@@ -31,6 +31,57 @@ export const storage = getStorage(app);
 //   }
 // });
 
+// Location type for storing coordinates
+export type Location = {
+  lat: number;
+  lng: number;
+};
+
+// Location type returned after geocoding
+export type GeocodedLocation = Location & {
+  label: string;
+};
+
+// Convert manual text input (city, address, postal code) into lat/lng
+export async function geocodeLocationQuery(queryText: string): Promise<GeocodedLocation> {
+  const query = queryText.trim();
+
+  if (!query) {
+    throw new Error("Please enter a location.");
+  }
+
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`;
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error("Geocoding request failed.");
+  }
+
+  const results = await response.json();
+
+  if (!Array.isArray(results) || results.length === 0) {
+    throw new Error("No matching location found.");
+  }
+
+  const first = results[0];
+  const lat = Number(first.lat);
+  const lng = Number(first.lon);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    throw new Error("Invalid coordinates returned for that location.");
+  }
+
+  return {
+    lat,
+    lng,
+    label: String(first.display_name ?? query),
+  };
+}
 
 // Feed Item
 export type FeedItem = {
@@ -88,6 +139,9 @@ export type UserProfile = {
   average_rating?: number;
   ratings_received_count?: number;
   completed_trade_count?: number;
+  location?: Location | null;
+  locationLabel?: string;
+  radiusKm?: number;
 };
 
 // Getting user profile
@@ -114,7 +168,7 @@ export async function uploadMyProfilePhoto(
 }
 
 
-// Save user profile (bio and photoURL)
+// Save user profile (bio, photoURL, and location fields)
 export async function saveMyProfile(uid: string, profile: UserProfile) {
   await setDoc(doc(db, "users", uid), profile, { merge: true });
 }

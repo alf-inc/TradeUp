@@ -15,8 +15,35 @@ import {
   saveNewItem,
   getUserItems,
   deleteItem,
+  geocodeLocationQuery,
+  type Location,
 } from "../firebase/firebase";
 import type { CompletedTrade } from "../types";
+
+// Helper to get current browser/device location
+function getBrowserLocation(): Promise<Location> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Geolocation is not supported by this browser."));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      () => reject(new Error("Failed to get current location.")),
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000,
+      }
+    );
+  });
+}
 
 export function ProfileView() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -44,6 +71,9 @@ export function ProfileView() {
     averageRating: number;
     ratingsReceivedCount: number;
     completedTradeCount: number;
+    location: Location | null;
+    locationLabel: string;
+    radiusKm: number;
   }>({
     name: "My Profile",
     photoURL: "",
@@ -51,12 +81,19 @@ export function ProfileView() {
     averageRating: 0,
     ratingsReceivedCount: 0,
     completedTradeCount: 0,
+    location: null,
+    locationLabel: "",
+    radiusKm: 25,
   });
 
-  // Edit form state (URL + Bio)
+  // Edit form state (URL + Bio + Name + Location)
   const [editBio, setEditBio] = useState("");
   const [editPhotoURL, setEditPhotoURL] = useState("");
   const [editName, setEditName] = useState("");
+  const [editLocationQuery, setEditLocationQuery] = useState("");
+  const [editLocationLabel, setEditLocationLabel] = useState("");
+  const [editLocation, setEditLocation] = useState<Location | null>(null);
+  const [resolvingLocation, setResolvingLocation] = useState(false);
 
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -93,6 +130,16 @@ export function ProfileView() {
         const completedTradeCount =
           typeof p.completed_trade_count === "number" ? p.completed_trade_count : 0;
 
+        const location =
+          p.location &&
+          typeof p.location.lat === "number" &&
+          typeof p.location.lng === "number"
+            ? p.location
+            : null;
+
+        const locationLabel = typeof p.locationLabel === "string" ? p.locationLabel : "";
+        const radiusKm = typeof p.radiusKm === "number" ? p.radiusKm : 25;
+
         setProfile((prev) => ({
           ...prev,
           name,
@@ -101,10 +148,16 @@ export function ProfileView() {
           averageRating,
           ratingsReceivedCount,
           completedTradeCount,
+          location,
+          locationLabel,
+          radiusKm,
         }));
         setEditName(name);
         setEditBio(bio);
         setEditPhotoURL(photoURL);
+        setEditLocation(location);
+        setEditLocationLabel(locationLabel);
+        setEditLocationQuery(locationLabel);
 
         // Load user's items
         const userItems = await getUserItems(uid);
@@ -140,8 +193,43 @@ export function ProfileView() {
     setEditName(profile.name);
     setEditBio(profile.bio);
     setEditPhotoURL(profile.photoURL);
+    setEditLocation(profile.location);
+    setEditLocationLabel(profile.locationLabel);
+    setEditLocationQuery(profile.locationLabel);
     setIsEditingProfile(false);
     setSaveError("");
+  };
+
+  const handleUseCurrentLocationForProfile = async () => {
+    try {
+      setResolvingLocation(true);
+      setSaveError("");
+
+      const coords = await getBrowserLocation();
+      setEditLocation(coords);
+      setEditLocationLabel("Current device location");
+      setEditLocationQuery("Current device location");
+    } catch (e: any) {
+      setSaveError(e?.message ?? "Failed to get current location.");
+    } finally {
+      setResolvingLocation(false);
+    }
+  };
+
+  const handleResolveManualLocationForProfile = async () => {
+    try {
+      setResolvingLocation(true);
+      setSaveError("");
+
+      const result = await geocodeLocationQuery(editLocationQuery.trim());
+      setEditLocation({ lat: result.lat, lng: result.lng });
+      setEditLocationLabel(result.label);
+      setEditLocationQuery(result.label);
+    } catch (e: any) {
+      setSaveError(e?.message ?? "Failed to resolve location.");
+    } finally {
+      setResolvingLocation(false);
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -155,15 +243,35 @@ export function ProfileView() {
       const newBio = editBio.trim();
       const newPhotoURL = editPhotoURL.trim();
 
-      console.log("[US2] saving profile to firestore...", { newName, newBio, newPhotoURL });
+      if (!editLocation) {
+        setSavingProfile(false);
+        setSaveError("Please set a valid location before saving.");
+        return;
+      }
 
-      await saveMyProfile(uid, { name: newName, bio: newBio, photoURL: newPhotoURL });
+      console.log("[US2] saving profile to firestore...", {
+        newName,
+        newBio,
+        newPhotoURL,
+        editLocation,
+        editLocationLabel,
+      });
+
+      await saveMyProfile(uid, {
+        name: newName,
+        bio: newBio,
+        photoURL: newPhotoURL,
+        location: editLocation,
+        locationLabel: editLocationLabel || editLocationQuery.trim(),
+      });
 
       setProfile((prev) => ({
         ...prev,
         name: newName,
         bio: newBio,
         photoURL: newPhotoURL,
+        location: editLocation,
+        locationLabel: editLocationLabel || editLocationQuery.trim(),
       }));
 
       setIsEditingProfile(false);
@@ -218,6 +326,9 @@ export function ProfileView() {
                       setEditName(profile.name);
                       setEditBio(profile.bio);
                       setEditPhotoURL(profile.photoURL);
+                      setEditLocation(profile.location);
+                      setEditLocationLabel(profile.locationLabel);
+                      setEditLocationQuery(profile.locationLabel);
                       setSaveError("");
                       setIsEditingProfile(true);
                     }}
@@ -236,6 +347,12 @@ export function ProfileView() {
                   </span>{" "}
                   ({profile.ratingsReceivedCount}{" "}
                   {profile.ratingsReceivedCount === 1 ? "rating" : "ratings"})
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Location:{" "}
+                  <span className="font-medium text-gray-700">
+                    {profile.locationLabel || "Not set"}
+                  </span>
                 </p>
               </div>
             </div>
@@ -278,9 +395,9 @@ export function ProfileView() {
 
                 {/*Edit Name*/}
                 <div className="w-full space-y-2">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Edit Name
-                </label>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Edit Name
+                  </label>
                   <Input
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
@@ -304,6 +421,48 @@ export function ProfileView() {
                   <p className="text-xs text-gray-500">
                     Paste an image link. We store it in Firestore (no Storage / billing required).
                   </p>
+                </div>
+
+                {/*Edit Location*/}
+                <div className="w-full space-y-2">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Location
+                  </label>
+
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleUseCurrentLocationForProfile}
+                      disabled={resolvingLocation || savingProfile}
+                    >
+                      Use Current Location
+                    </Button>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Input
+                      value={editLocationQuery}
+                      onChange={(e) => setEditLocationQuery(e.target.value)}
+                      placeholder="Toronto, ON"
+                      className="text-sm"
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={handleResolveManualLocationForProfile}
+                      disabled={resolvingLocation || savingProfile}
+                    >
+                      Resolve
+                    </Button>
+                  </div>
+
+                  {editLocation && (
+                    <p className="text-xs text-gray-500">
+                      {editLocationLabel} — lat: {editLocation.lat.toFixed(6)}, lng:{" "}
+                      {editLocation.lng.toFixed(6)}
+                    </p>
+                  )}
                 </div>
               </div>
 
