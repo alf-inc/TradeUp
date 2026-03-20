@@ -15,6 +15,7 @@ import {
   saveNewItem,
   getUserItems,
   deleteItem,
+  getTradeHistory,
 } from "../firebase/firebase";
 import type { CompletedTrade } from "../types";
 
@@ -66,7 +67,7 @@ export function ProfileView() {
   const [loadingItems, setLoadingItems] = useState(false);
   const [itemsError, setItemsError] = useState("");
 
-  // Trade history state (data fetching will be wired up in Task 12.2)
+  // Trade history state
   const [tradeHistory, setTradeHistory] = useState<CompletedTrade[]>([]);
   const [loadingTrades, setLoadingTrades] = useState(false);
   const [tradesError, setTradesError] = useState("");
@@ -89,9 +90,13 @@ export function ProfileView() {
         const averageRating =
           typeof p.average_rating === "number" ? p.average_rating : 0;
         const ratingsReceivedCount =
-          typeof p.ratings_received_count === "number" ? p.ratings_received_count : 0;
+          typeof p.ratings_received_count === "number"
+            ? p.ratings_received_count
+            : 0;
         const completedTradeCount =
-          typeof p.completed_trade_count === "number" ? p.completed_trade_count : 0;
+          typeof p.completed_trade_count === "number"
+            ? p.completed_trade_count
+            : 0;
 
         setProfile((prev) => ({
           ...prev,
@@ -119,6 +124,37 @@ export function ProfileView() {
       } finally {
         setLoadingProfile(false);
         setLoadingItems(false);
+      }
+    })();
+  }, [uid]);
+
+  // Load completed trade history from backend when uid is available
+  useEffect(() => {
+    if (!uid) {
+      setTradeHistory([]);
+      setTradesError("");
+      setLoadingTrades(false);
+      return;
+    }
+
+    (async () => {
+      setLoadingTrades(true);
+      setTradesError("");
+
+      try {
+        const history = await getTradeHistory(uid);
+        setTradeHistory(history);
+
+        // Keep the trade counter in sync with real loaded history
+        setProfile((prev) => ({
+          ...prev,
+          completedTradeCount: history.length,
+        }));
+      } catch (error) {
+        console.error("Error loading trade history:", error);
+        setTradesError("Failed to load trade history.");
+      } finally {
+        setLoadingTrades(false);
       }
     })();
   }, [uid]);
@@ -155,9 +191,17 @@ export function ProfileView() {
       const newBio = editBio.trim();
       const newPhotoURL = editPhotoURL.trim();
 
-      console.log("[US2] saving profile to firestore...", { newName, newBio, newPhotoURL });
+      console.log("[US2] saving profile to firestore...", {
+        newName,
+        newBio,
+        newPhotoURL,
+      });
 
-      await saveMyProfile(uid, { name: newName, bio: newBio, photoURL: newPhotoURL });
+      await saveMyProfile(uid, {
+        name: newName,
+        bio: newBio,
+        photoURL: newPhotoURL,
+      });
 
       setProfile((prev) => ({
         ...prev,
@@ -184,7 +228,9 @@ export function ProfileView() {
     return (
       <div className="p-6">
         <div className="bg-white rounded-2xl p-6 shadow-lg">
-          <h2 className="text-xl font-bold mb-2">{(profile.name?.trim() ? profile.name : "My Profile").slice(0, 11)}</h2>
+          <h2 className="text-xl font-bold mb-2">
+            {(profile.name?.trim() ? profile.name : "My Profile").slice(0, 11)}
+          </h2>
           <p className="text-gray-600">Please log in to edit your profile.</p>
         </div>
       </div>
@@ -278,9 +324,9 @@ export function ProfileView() {
 
                 {/*Edit Name*/}
                 <div className="w-full space-y-2">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Edit Name
-                </label>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Edit Name
+                  </label>
                   <Input
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
@@ -347,7 +393,9 @@ export function ProfileView() {
                 <p className="text-sm text-gray-500">Matches</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-purple-600">{profile.completedTradeCount}</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {profile.completedTradeCount}
+                </p>
                 <p className="text-sm text-gray-500">Trades</p>
               </div>
             </div>
