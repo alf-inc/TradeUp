@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { MessageCircle, Clock, Check, X } from 'lucide-react';
+import { MessageCircle, Clock, ArrowLeft } from 'lucide-react';
 import { auth, db } from '../firebase/firebase'; 
-import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { ChatWindow } from './ChatWindow'; 
 
 interface MatchNotification {
   id: string;
   userId: string;
   type: string;
-  status?: 'accepted' | 'rejected';
   createdAt: any;
   payload: {
     otherUserId: string;
@@ -21,12 +21,17 @@ interface HydratedMatch {
   item: any;
   matchedWith: any;
   timestamp: Date;
-  status?: 'accepted' | 'rejected'; // Added status type
 }
 
 export function MatchesView() {
   const [matches, setMatches] = useState<HydratedMatch[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // State to track if we are viewing a specific chat
+  const [activeChat, setActiveChat] = useState<{
+    chatId: string;
+    matchedWith: any;
+  } | null>(null);
 
   const formatTimestamp = (date: Date) => {
     const now = new Date();
@@ -40,72 +45,36 @@ export function MatchesView() {
     return `${diffDays}d ago`;
   };
 
-  const handleStatusUpdate = async (matchId: string, newStatus: 'accepted' | 'rejected', matchData: HydratedMatch) => {
-  if (!auth.currentUser) return;
+  const handleOpenChat = async (match: HydratedMatch) => {
+    if (!auth.currentUser) return;
 
-  // 1. Optimistic UI Update
-  setMatches((prev) => 
-    prev.map((m) => 
-      m.id === matchId ? { ...m, status: newStatus } : m
-    )
-  );
+    try {
+      const res = await fetch('http://localhost:8000/chats/initiate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          currentUserId: auth.currentUser.uid,
+          likedItemId: match.matchedWith.id,
+        }),
+      });
 
-  try {
-    // 2. Update MY notification status
-    const myNotificationRef = doc(db, "notifications", matchId);
-    await updateDoc(myNotificationRef, {
-      status: newStatus
-    });
+      if (!res.ok) throw new Error('Failed to initiate chat');
 
-    // 3. IF I ACCEPTED, CHECK IF THEY ACCEPTED TOO
-    if (newStatus === 'accepted') {
-      // We need to find the notification sent to the OTHER user for this same match.
-      // logic: userId == otherUser AND payload.otherUserId == me
-      const q = query(
-        collection(db, "notifications"),
-        where("userId", "==", matchData.matchedWith.userId), // The other user
-        where("type", "==", "MUTUAL_MATCH"),
-        where("payload.otherUserId", "==", auth.currentUser.uid), // Me
-        where("payload.itemId", "==", matchData.item.id) // Ensure it's about the same item swap
-      );
-
-      const snapshot = await getDocs(q);
+      const data = await res.json();
       
-      if (!snapshot.empty) {
-        const theirNotification = snapshot.docs[0].data();
-        
-        if (theirNotification.status === 'accepted') {
-          // At this point - we consider this a confirmed match
-          // RYAN: This is where you would add a confirmed match to the collection
-
-
-          // Confirm the trade on the backend (creates completed_trades if needed)
-          try {
-            const res = await fetch(
-              `http://localhost:8000/trades/confirm?notificationId=${matchId}`,
-              { method: "POST" }
-            );
-
-            if (!res.ok) {
-              const text = await res.text();
-              console.error("Confirm trade failed:", text);
-            } else {
-              const data = await res.json();
-              console.log("Trade confirm result:", data);
-            }
-          } catch (e) {
-            console.error("Confirm trade request error:", e);
-          }
-
-          
-        }
+      // Save both the new ID and the user data to state
+      if (data.chatId) {
+        setActiveChat({
+          chatId: data.chatId,
+          matchedWith: match.matchedWith
+        });
       }
+    } catch (error) {
+      console.error("Error opening chat:", error);
     }
-
-  } catch (error) {
-    console.error("Failed to update match status:", error);
-  }
-};
+  };
 
   useEffect(() => {
     const fetchMatchesFromNotifications = async () => {
@@ -141,7 +110,6 @@ export function MatchesView() {
               timestamp: createdAtDate,
               item: { ...myItemSnap.data(), id: mutualItemId },
               matchedWith: { ...theirItemSnap.data(), id: itemId },
-              status: notif.status 
             };
           })
         );
@@ -160,6 +128,18 @@ export function MatchesView() {
     fetchMatchesFromNotifications();
   }, []);
 
+  // Chat View
+  if (activeChat) {
+    return (
+      <ChatWindow 
+        chatId={activeChat.chatId} 
+        matchedWith={activeChat.matchedWith}
+        onClose={() => setActiveChat(null)} 
+      />
+    );
+  }
+
+  // --- Match Feed View ---
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -229,7 +209,7 @@ export function MatchesView() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 mb-4">
+                <div className="flex items-center gap-3 mb-6">
                   <img
                     src={match.matchedWith.userAvatar || 'https://via.placeholder.com/40'}
                     alt={match.matchedWith.userName}
@@ -237,48 +217,19 @@ export function MatchesView() {
                   />
                   <div className="flex-1">
                     <p className="font-medium">{match.matchedWith.userName}</p>
-                    <p className="text-sm text-gray-500">wants to trade</p>
+                    <p className="text-sm text-gray-500">Mutual match!</p>
                   </div>
                 </div>
 
-                {/* --- Conditional Rendering Based on Status --- */}
-                {match.status ? (
-                  <div className={`w-full py-3 rounded-full font-medium text-center flex items-center justify-center gap-2 ${
-                    match.status === 'accepted' 
-                      ? 'bg-green-100 text-green-700' 
-                      : 'bg-red-100 text-red-700'
-                  }`}>
-                    {match.status === 'accepted' ? (
-                      <>
-                        <Check className="w-5 h-5" />
-                        <span>Accepted</span>
-                      </>
-                    ) : (
-                      <>
-                        <X className="w-5 h-5" />
-                        <span>Rejected</span>
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex gap-3">
-                    <button 
-                      onClick={() => handleStatusUpdate(match.id, 'rejected', match)} // Pass 'match' object
-                      className="..."
-                    >
-                      <X className="w-5 h-5" />
-                      <span>Reject</span>
-                    </button>
-
-                    <button 
-                      onClick={() => handleStatusUpdate(match.id, 'accepted', match)} // Pass 'match' object
-                      className="..."
-                    >
-                      <Check className="w-5 h-5" />
-                      <span>Accept</span>
-                    </button>
-                  </div>
-                )}
+                {/* Open Chat Button */}
+                <button 
+                  onClick={() => handleOpenChat(match)}
+                  className="w-full py-3 bg-purple-600 text-white rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-purple-700 transition-colors"
+                >
+                  <MessageCircle className="w-5 h-5" />
+                  <span>Open Chat</span>
+                </button>
+                
               </div>
             </div>
           ))}
