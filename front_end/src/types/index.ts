@@ -47,6 +47,33 @@ export interface Match {
   timestamp: Date;
 }
 
+export interface CompletedTrade {
+  id: string;                  // trade document ID (matchKey)
+  tradeId: string;             // same as id / matchKey
+  user1Id: string;
+  user2Id: string;
+  item1Id: string;
+  item2Id: string;
+  user1Rating: number | null;
+  user2Rating: number | null;
+  status: string;              // "confirmed" | "completed"
+  completedAt?: number;        // timestamp
+
+  // Resolved display fields (populated by frontend after fetching)
+  item1Title?: string;
+  item1Image?: string;
+  item2Title?: string;
+  item2Image?: string;
+  partnerName?: string;
+  partnerAvatar?: string;
+  givenItemTitle?: string;     // item the current user gave
+  givenItemImage?: string;
+  receivedItemTitle?: string;  // item the current user received
+  receivedItemImage?: string;
+  myRating?: number | null;    // rating the current user gave
+  partnerRating?: number | null; // rating the partner gave
+}
+
 export interface Notification {
   id: string;
   userId: string;
