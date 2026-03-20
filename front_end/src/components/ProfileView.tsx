@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { currentUser } from "../data/mockData";
-import { Plus, Edit2, Trash2, X, Check } from "lucide-react";
+import { Plus, Edit2, Trash2, X, Check, History } from "lucide-react";
 import { AddItemModal } from "./AddItemModal";
+import { TradeHistoryCard } from "./TradeHistoryCard";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Button } from "./ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   auth,
@@ -14,6 +16,7 @@ import {
   getUserItems,
   deleteItem,
 } from "../firebase/firebase";
+import type { CompletedTrade } from "../types";
 
 export function ProfileView() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -62,6 +65,11 @@ export function ProfileView() {
   // NEW: Item loading + error
   const [loadingItems, setLoadingItems] = useState(false);
   const [itemsError, setItemsError] = useState("");
+
+  // Trade history state (data fetching will be wired up in Task 12.2)
+  const [tradeHistory, setTradeHistory] = useState<CompletedTrade[]>([]);
+  const [loadingTrades, setLoadingTrades] = useState(false);
+  const [tradesError, setTradesError] = useState("");
 
   // Load profile + items from Firestore when uid is available
   useEffect(() => {
@@ -346,90 +354,146 @@ export function ProfileView() {
           )}
         </div>
 
-        {/* My Items Section */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-bold">My Items for Trade</h3>
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-full hover:shadow-lg transition-shadow"
+        {/* Tabbed Section: My Items / Trade History */}
+        <Tabs defaultValue="listings" className="mb-6">
+          <TabsList className="w-full bg-gray-100 p-1 rounded-xl mb-4">
+            <TabsTrigger
+              value="listings"
+              className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg text-sm font-semibold"
             >
-              <Plus className="w-4 h-4" />
-              <span>Add Item</span>
-            </button>
-          </div>
+              <Plus className="w-4 h-4 mr-1.5" />
+              My Listings ({items.length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="history"
+              className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-lg text-sm font-semibold"
+            >
+              <History className="w-4 h-4 mr-1.5" />
+              Trade History ({tradeHistory.length})
+            </TabsTrigger>
+          </TabsList>
 
-          {loadingItems ? (
-            <div className="bg-white rounded-2xl p-6 shadow-lg text-gray-600">
-              Loading your items...
-            </div>
-          ) : itemsError ? (
-            <div className="bg-white rounded-2xl p-6 shadow-lg text-red-600">
-              {itemsError}
-            </div>
-          ) : items.length === 0 ? (
-            <div className="bg-white rounded-2xl p-8 shadow-lg text-center">
-              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Plus className="w-8 h-8 text-purple-600" />
-              </div>
-              <p className="text-gray-600 mb-4">You haven't added any items yet.</p>
+          {/* ── My Listings Tab ── */}
+          <TabsContent value="listings">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold">My Items for Trade</h3>
               <button
                 onClick={() => setIsAddModalOpen(true)}
-                className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-2 rounded-full hover:shadow-lg transition-shadow"
+                className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-full hover:shadow-lg transition-shadow"
               >
-                Add Your First Item
+                <Plus className="w-4 h-4" />
+                <span>Add Item</span>
               </button>
             </div>
-          ) : (
-            <div className="grid gap-4">
-              {items.map((item) => {
-                const thumb = item.imageUrls?.[0] || currentUser.avatar;
 
-                return (
-                  <div
-                    key={item.id}
-                    className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
-                  >
-                    <div className="flex gap-4">
-                      <img
-                        src={thumb}
-                        alt={item.title}
-                        className="w-32 h-32 object-cover"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src = currentUser.avatar;
-                        }}
-                      />
-                      <div className="flex-1 p-4">
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <h4 className="font-bold mb-1">{item.title}</h4>
-                            <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                              {item.description}
-                            </p>
+            {loadingItems ? (
+              <div className="bg-white rounded-2xl p-6 shadow-lg text-gray-600">
+                Loading your items...
+              </div>
+            ) : itemsError ? (
+              <div className="bg-white rounded-2xl p-6 shadow-lg text-red-600">
+                {itemsError}
+              </div>
+            ) : items.length === 0 ? (
+              <div className="bg-white rounded-2xl p-8 shadow-lg text-center">
+                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Plus className="w-8 h-8 text-purple-600" />
+                </div>
+                <p className="text-gray-600 mb-4">You haven't added any items yet.</p>
+                <button
+                  onClick={() => setIsAddModalOpen(true)}
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-2 rounded-full hover:shadow-lg transition-shadow"
+                >
+                  Add Your First Item
+                </button>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {items.map((item) => {
+                  const thumb = item.imageUrls?.[0] || currentUser.avatar;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
+                    >
+                      <div className="flex gap-4">
+                        <img
+                          src={thumb}
+                          alt={item.title}
+                          className="w-32 h-32 object-cover"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src = currentUser.avatar;
+                          }}
+                        />
+                        <div className="flex-1 p-4">
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <h4 className="font-bold mb-1">{item.title}</h4>
+                              <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                                {item.description}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => handleDeleteItem(item.id)}
+                              className="p-2 hover:bg-red-50 rounded-full transition-colors group"
+                            >
+                              <Trash2 className="w-4 h-4 text-gray-400 group-hover:text-red-500" />
+                            </button>
                           </div>
-                          <button
-                            onClick={() => handleDeleteItem(item.id)}
-                            className="p-2 hover:bg-red-50 rounded-full transition-colors group"
-                          >
-                            <Trash2 className="w-4 h-4 text-gray-400 group-hover:text-red-500" />
-                          </button>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
-                            {item.category}
-                          </span>
-                          <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full capitalize">
-                            {item.condition}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
+                              {item.category}
+                            </span>
+                            <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full capitalize">
+                              {item.condition}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ── Trade History Tab ── */}
+          <TabsContent value="history">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold">Trade History</h3>
             </div>
-          )}
-        </div>
+
+            {loadingTrades ? (
+              <div className="bg-white rounded-2xl p-6 shadow-lg text-gray-600">
+                Loading trade history...
+              </div>
+            ) : tradesError ? (
+              <div className="bg-white rounded-2xl p-6 shadow-lg text-red-600">
+                {tradesError}
+              </div>
+            ) : tradeHistory.length === 0 ? (
+              <div className="bg-white rounded-2xl p-8 shadow-lg text-center">
+                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <History className="w-8 h-8 text-purple-600" />
+                </div>
+                <h4 className="text-lg font-semibold text-gray-700 mb-2">
+                  No trades yet
+                </h4>
+                <p className="text-gray-500 text-sm max-w-xs mx-auto">
+                  Once you complete a trade with another user, it will appear here
+                  with all the details.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {tradeHistory.map((trade) => (
+                  <TradeHistoryCard key={trade.id} trade={trade} />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
 
       {isAddModalOpen && (
