@@ -1,4 +1,4 @@
-import { ArrowRightLeft, Star } from "lucide-react";
+import { ArrowDownUp, Star } from "lucide-react";
 import type { CompletedTrade } from "../types";
 
 interface TradeHistoryCardProps {
@@ -58,11 +58,11 @@ export function TradeHistoryCard({ trade }: TradeHistoryCardProps) {
         </span>
       </div>
 
-      {/* Items exchanged: Given → Received */}
+      {/* Items exchanged: Given ↓ Received */}
       <div className="px-4 py-3">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col items-center gap-2">
           {/* Item given */}
-          <div className="flex-1 flex items-center gap-3 bg-red-50/60 rounded-lg p-2">
+          <div className="w-full flex items-center gap-3 bg-red-50/60 rounded-lg p-3">
             <img
               src={trade.givenItemImage || fallbackImg}
               alt={trade.givenItemTitle || "Item given"}
@@ -82,10 +82,10 @@ export function TradeHistoryCard({ trade }: TradeHistoryCardProps) {
           </div>
 
           {/* Arrow */}
-          <ArrowRightLeft className="w-5 h-5 text-purple-400 flex-shrink-0" />
+          <ArrowDownUp className="w-5 h-5 text-purple-400 flex-shrink-0" />
 
           {/* Item received */}
-          <div className="flex-1 flex items-center gap-3 bg-green-50/60 rounded-lg p-2">
+          <div className="w-full flex items-center gap-3 bg-green-50/60 rounded-lg p-3">
             <img
               src={trade.receivedItemImage || fallbackImg}
               alt={trade.receivedItemTitle || "Item received"}
