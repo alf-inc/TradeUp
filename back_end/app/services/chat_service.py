@@ -4,6 +4,13 @@ from firebase_admin import firestore
 
 from app.services.match_checker import check_match_only
 
+def _format_timestamp(ts):
+    if not ts:
+        return None
+    try:
+        return ts.isoformat()
+    except AttributeError:
+        return str(ts)
 
 def _build_participants_key(user_a: str, user_b: str) -> str:
     participants = sorted([user_a, user_b])
@@ -141,10 +148,9 @@ def send_message(db, chat_id: str, sender_id: str, message_text: str) -> Dict[st
         "senderId": sender_id,
         "receiverId": receiver_id,
         "message": saved_data.get("message", message_text.strip()),
-        "timestamp": saved_data.get("timestamp"),
+        "timestamp": _format_timestamp(saved_data.get("timestamp")), 
         "type": saved_data.get("type", "text"),
     }
-
 
 def get_chat_messages(db, chat_id: str, user_id: str) -> List[Dict[str, Any]]:
     verify_user_in_chat(db, chat_id, user_id)
@@ -166,7 +172,7 @@ def get_chat_messages(db, chat_id: str, user_id: str) -> List[Dict[str, Any]]:
             "senderId": data.get("senderId"),
             "receiverId": data.get("receiverId"),
             "message": data.get("message"),
-            "timestamp": data.get("timestamp"),
+            "timestamp": _format_timestamp(data.get("timestamp")),
             "type": data.get("type", "text"),
         })
 

@@ -28,7 +28,8 @@ class ConnectionManager:
         for user_id, websocket in self.active_connections[chat_id].items():
             try:
                 await websocket.send_json(message)
-            except Exception:
+            except Exception as e:
+                print(f"Failed to send to {user_id}: {str(e)}") # Error handling
                 dead_users.append(user_id)
 
         for user_id in dead_users:
