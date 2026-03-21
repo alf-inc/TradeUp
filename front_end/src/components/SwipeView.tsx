@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { Item, MatchItem } from '../types';
-import { Heart, Package, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Heart, Package, ChevronLeft, ChevronRight, Bookmark } from 'lucide-react';
 import { getFeedItems, auth, addLikedItem, removeLikedItem } from '../firebase/firebase';
 import { MatchPopupModal } from './MatchPopupModal';
 import { useCreateOffer } from '../utils/useCreateOffer';
+import { toggleSavedListing, getSavedListings } from '../api/savedListings';
 
 type SwipeViewProps = {
   userId: string | null;
@@ -20,6 +21,8 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
   const [imageTransitioningById, setImageTransitioningById] = useState<Record<string, boolean>>({});
   const [matchPopupData, setMatchPopupData] = useState<MatchItem[] | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [savedItems, setSavedItems] = useState<string[]>([]);
+  const [savingItems, setSavingItems] = useState<string[]>([]);
 
   // ── Offer creation hook ────────────────────────────────────────────────────
   const { createOffer } = useCreateOffer();
@@ -41,6 +44,29 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
       setItems(feedItems as unknown as Item[]);
       setOrder(buildRandomOrder(feedItems as unknown as Item[]));
       setCurrentIndex(0);
+
+      try {
+        const saved = await getSavedListings(uid);
+
+        const savedArray = Array.isArray(saved)
+          ? saved
+          : Array.isArray(saved?.savedListings)
+          ? saved.savedListings
+          : Array.isArray(saved?.listings)
+          ? saved.listings
+          : Array.isArray(saved?.data)
+          ? saved.data
+          : [];
+
+        const savedIds = savedArray
+          .map((item: any) => item.listingId)
+          .filter(Boolean);
+
+        setSavedItems(savedIds);
+      } catch (error) {
+        console.warn("Failed to load saved listings:", error);
+      }
+      
     })();
   }, [userId]);
 
@@ -100,6 +126,37 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
       setLikedItems((prev) =>
         alreadyLiked ? [...prev, itemId] : prev.filter((id) => id !== itemId)
       );
+    }
+  };
+
+    const handleSave = async (item: Item) => {
+    const uid = userId ?? auth.currentUser?.uid;
+    if (!uid) {
+      console.warn("No user logged in");
+      return;
+    }
+
+    const itemId = item.id;
+    const alreadySaved = savedItems.includes(itemId);
+
+    if (savingItems.includes(itemId)) return;
+
+    setSavingItems((prev) => [...prev, itemId]);
+
+    setSavedItems((prev) =>
+      alreadySaved ? prev.filter((id) => id !== itemId) : [...prev, itemId]
+    );
+
+    try {
+      await toggleSavedListing(uid, itemId);
+    } catch (error) {
+      console.error("Failed to update saved listings:", error);
+
+      setSavedItems((prev) =>
+        alreadySaved ? [...prev, itemId] : prev.filter((id) => id !== itemId)
+      );
+    } finally {
+      setSavingItems((prev) => prev.filter((id) => id !== itemId));
     }
   };
 
@@ -321,6 +378,21 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
                   </div>
                 </div>
               </div>
+
+              {/* Save Button */}
+              <button
+                onClick={() => handleSave(item)}
+                disabled={savingItems.includes(item.id)}
+                className="absolute right-4 bottom-40 h-12 w-12 bg-white/20 backdrop-blur-md rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform group disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Bookmark
+                  className={`w-6 h-6 transition-all ${
+                    savedItems.includes(item.id)
+                      ? 'text-yellow-400 fill-yellow-400'
+                      : 'text-gray-400 fill-gray-400'
+                  }`}
+                />
+              </button>
 
               {/* Like Button (scrolls with card) */}
               <button
