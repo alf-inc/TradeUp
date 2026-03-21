@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { X, Send } from 'lucide-react';
-import { auth } from '../firebase/firebase';
+import { X, Send, Check } from 'lucide-react';
+import { doc, updateDoc } from 'firebase/firestore';
+import { auth, db } from '../firebase/firebase';
 
 interface Message {
   messageId: string;
@@ -11,17 +12,28 @@ interface Message {
 
 interface ChatWindowProps {
   chatId: string;
+  notificationId: string;
   matchedWith: {
     userName: string;
     userAvatar?: string;
   };
+  initialStatus?: 'accepted' | 'rejected'; 
+  isFullyConfirmed?: boolean;
   onClose: () => void;
 }
 
-export function ChatWindow({ chatId, matchedWith, onClose }: ChatWindowProps) {
+export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
+  isFullyConfirmed, onClose }: ChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
+
+  const [tradeState, setTradeState] = useState<'idle' | 'waiting' | 'confirmed'>(() => {
+    if (isFullyConfirmed) return 'confirmed';
+    if (initialStatus === 'accepted') return 'waiting';
+    return 'idle';
+  });
+  const [isConfirming, setIsConfirming] = useState(false);
   
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -91,6 +103,41 @@ export function ChatWindow({ chatId, matchedWith, onClose }: ChatWindowProps) {
     setInputText('');
   };
 
+  const handleConfirmTrade = async () => {
+    setIsConfirming(true);
+    try {
+      // 1. Update YOUR notification to 'accepted' in Firestore
+      const notifRef = doc(db, 'notifications', notificationId);
+      await updateDoc(notifRef, {
+        status: 'accepted'
+      });
+
+      // 2. Ping the backend to check if the OTHER user also accepted
+      const res = await fetch(`http://localhost:8000/trades/confirm?notificationId=${notificationId}`, {
+        method: 'POST'
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        
+        // 3. Update UI based on backend response
+        if (data.confirmed) {
+          setTradeState('confirmed');
+        } else {
+          // You accepted, but the backend couldn't confirm because the other user hasn't yet
+          setTradeState('waiting'); 
+        }
+      } else {
+        const text = await res.text();
+        console.error("Failed to confirm trade:", text);
+      }
+    } catch (error) {
+      console.error("Error confirming trade:", error);
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
   if (!currentUserId) return null;
 
   return (
@@ -105,13 +152,42 @@ export function ChatWindow({ chatId, matchedWith, onClose }: ChatWindowProps) {
           />
           <h2 className="text-lg font-bold text-gray-800">{matchedWith.userName}</h2>
         </div>
-        <button 
-          onClick={onClose}
-          className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          aria-label="Close Chat"
-        >
-          <X className="w-6 h-6 text-gray-700" />
-        </button>
+        
+        {/* Header Action Buttons */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleConfirmTrade}
+            disabled={tradeState !== 'idle' || isConfirming}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              tradeState === 'confirmed'
+                ? 'bg-green-100 text-green-700 cursor-default'
+                : tradeState === 'waiting'
+                ? 'bg-yellow-100 text-yellow-700 cursor-default'
+                : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+            }`}
+          >
+            {isConfirming ? (
+              <span>Processing...</span>
+            ) : tradeState === 'confirmed' ? (
+              <>
+                <Check className="w-4 h-4" />
+                <span>Confirmed!</span>
+              </>
+            ) : tradeState === 'waiting' ? (
+              <span>Waiting for {matchedWith.userName}...</span>
+            ) : (
+              <span>Confirm Trade</span>
+            )}
+          </button>
+
+          <button 
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            aria-label="Close Chat"
+          >
+            <X className="w-6 h-6 text-gray-700" />
+          </button>
+        </div>
       </div>
 
       {/* Messages Area */}
