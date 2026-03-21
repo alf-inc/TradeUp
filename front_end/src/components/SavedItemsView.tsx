@@ -3,7 +3,8 @@ import { auth } from "../firebase/firebase";
 import { getSavedListings, toggleSavedListing } from "../api/savedListings";
 
 type SavedItem = {
-  id: string;
+  id?: string;
+  listingId?: string;
   title?: string;
   description?: string;
   imageUrls?: string[];
@@ -53,12 +54,12 @@ export function SavedItemsView() {
   }, [userId]);
 
   const handleUnsave = async (listingId: string) => {
-    if (!userId) return;
+    if (!userId || !listingId) return;
 
     try {
       setUpdatingIds((prev) => [...prev, listingId]);
       await toggleSavedListing(userId, listingId);
-      setSavedItems((prev) => prev.filter((item) => item.id !== listingId));
+      setSavedItems((prev) => prev.filter((item) => (item.listingId ?? item.id) !== listingId));
     } catch (err) {
       console.error("Failed to unsave listing:", err);
       alert("Failed to update saved item.");
@@ -112,11 +113,12 @@ export function SavedItemsView() {
 
       <div className="grid gap-4">
         {savedItems.map((item) => {
+          const actualListingId = item.listingId ?? item.id ?? "";
           const thumb = item.imageUrls?.[0] || "https://via.placeholder.com/150";
 
           return (
             <div
-              key={item.id}
+              key={actualListingId}
               className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
             >
               <div className="flex gap-4">
@@ -139,11 +141,11 @@ export function SavedItemsView() {
                     </div>
 
                     <button
-                      onClick={() => handleUnsave(item.id)}
-                      disabled={updatingIds.includes(item.id)}
+                      onClick={() => handleUnsave(actualListingId)}
+                      disabled={!actualListingId || updatingIds.includes(actualListingId)}
                       className="px-3 py-1.5 rounded-full bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100 disabled:opacity-50"
                     >
-                      {updatingIds.includes(item.id) ? "Updating..." : "Unsave"}
+                      {updatingIds.includes(actualListingId) ? "Updating..." : "Unsave"}
                     </button>
                   </div>
 
