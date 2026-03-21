@@ -60,7 +60,7 @@ Example:
 
 Make sure `(venv)` is active, then run:
 
-    pip install fastapi uvicorn firebase-admin google-cloud-firestore
+    pip install fastapi uvicorn firebase-admin google-cloud-firestore 'uvicorn[standard]'
 
 
 --------------------------------------------------

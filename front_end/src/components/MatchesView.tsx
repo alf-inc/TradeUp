@@ -8,6 +8,8 @@ interface MatchNotification {
   id: string;
   userId: string;
   type: string;
+  status?: 'accepted' | 'rejected'; 
+  confirmed?: boolean;
   createdAt: any;
   payload: {
     otherUserId: string;
@@ -21,6 +23,8 @@ interface HydratedMatch {
   item: any;
   matchedWith: any;
   timestamp: Date;
+  status?: 'accepted' | 'rejected'; 
+  confirmed?: boolean;
 }
 
 export function MatchesView() {
@@ -30,7 +34,10 @@ export function MatchesView() {
   // State to track if we are viewing a specific chat
   const [activeChat, setActiveChat] = useState<{
     chatId: string;
+    notificationId: string;
     matchedWith: any;
+    status?: 'accepted' | 'rejected'; 
+    confirmed?: boolean;
   } | null>(null);
 
   const formatTimestamp = (date: Date) => {
@@ -68,7 +75,10 @@ export function MatchesView() {
       if (data.chatId) {
         setActiveChat({
           chatId: data.chatId,
-          matchedWith: match.matchedWith
+          notificationId: match.id,
+          matchedWith: match.matchedWith,
+          status: match.status,       
+          confirmed: match.confirmed
         });
       }
     } catch (error) {
@@ -110,6 +120,8 @@ export function MatchesView() {
               timestamp: createdAtDate,
               item: { ...myItemSnap.data(), id: mutualItemId },
               matchedWith: { ...theirItemSnap.data(), id: itemId },
+              status: notif.status,       
+              confirmed: notif.confirmed
             };
           })
         );
@@ -133,7 +145,10 @@ export function MatchesView() {
     return (
       <ChatWindow 
         chatId={activeChat.chatId} 
+        notificationId={activeChat.notificationId}
         matchedWith={activeChat.matchedWith}
+        initialStatus={activeChat.status}      
+        isFullyConfirmed={activeChat.confirmed}
         onClose={() => setActiveChat(null)} 
       />
     );
