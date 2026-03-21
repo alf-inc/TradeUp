@@ -87,13 +87,14 @@ export function ProfileView() {
     radiusKm: 25,
   });
 
-  // Edit form state (URL + Bio + Name + Location)
+  // Edit form state (URL + Bio + Name + Location + Radius)
   const [editBio, setEditBio] = useState("");
   const [editPhotoURL, setEditPhotoURL] = useState("");
   const [editName, setEditName] = useState("");
   const [editLocationQuery, setEditLocationQuery] = useState("");
   const [editLocationLabel, setEditLocationLabel] = useState("");
   const [editLocation, setEditLocation] = useState<Location | null>(null);
+  const [editRadiusKm, setEditRadiusKm] = useState("25");
   const [resolvingLocation, setResolvingLocation] = useState(false);
 
   const [loadingProfile, setLoadingProfile] = useState(false);
@@ -159,6 +160,7 @@ export function ProfileView() {
         setEditLocation(location);
         setEditLocationLabel(locationLabel);
         setEditLocationQuery(locationLabel);
+        setEditRadiusKm(String(radiusKm));
 
         // Load user's items
         const userItems = await getUserItems(uid);
@@ -216,6 +218,7 @@ export function ProfileView() {
     setEditLocation(profile.location);
     setEditLocationLabel(profile.locationLabel);
     setEditLocationQuery(profile.locationLabel);
+    setEditRadiusKm(String(profile.radiusKm));
     setIsEditingProfile(false);
     setSaveError("");
   };
@@ -262,10 +265,17 @@ export function ProfileView() {
       const newName = editName.trim().slice(0, 11);
       const newBio = editBio.trim();
       const newPhotoURL = editPhotoURL.trim();
+      const parsedRadius = Number(editRadiusKm);
 
       if (!editLocation) {
         setSavingProfile(false);
         setSaveError("Please set a valid location before saving.");
+        return;
+      }
+
+      if (!Number.isFinite(parsedRadius) || parsedRadius <= 0) {
+        setSavingProfile(false);
+        setSaveError("Please enter a valid radius in kilometers.");
         return;
       }
 
@@ -275,6 +285,7 @@ export function ProfileView() {
         newPhotoURL,
         editLocation,
         editLocationLabel,
+        parsedRadius,
       });
 
       await saveMyProfile(uid, {
@@ -283,6 +294,7 @@ export function ProfileView() {
         photoURL: newPhotoURL,
         location: editLocation,
         locationLabel: editLocationLabel || editLocationQuery.trim(),
+        radiusKm: parsedRadius,
       });
 
       setProfile((prev) => ({
@@ -292,6 +304,7 @@ export function ProfileView() {
         photoURL: newPhotoURL,
         location: editLocation,
         locationLabel: editLocationLabel || editLocationQuery.trim(),
+        radiusKm: parsedRadius,
       }));
 
       setIsEditingProfile(false);
@@ -349,6 +362,7 @@ export function ProfileView() {
                       setEditLocation(profile.location);
                       setEditLocationLabel(profile.locationLabel);
                       setEditLocationQuery(profile.locationLabel);
+                      setEditRadiusKm(String(profile.radiusKm));
                       setSaveError("");
                       setIsEditingProfile(true);
                     }}
@@ -372,6 +386,12 @@ export function ProfileView() {
                   Location:{" "}
                   <span className="font-medium text-gray-700">
                     {profile.locationLabel || "Not set"}
+                  </span>
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Radius:{" "}
+                  <span className="font-medium text-gray-700">
+                    {profile.radiusKm} km
                   </span>
                 </p>
               </div>
@@ -484,6 +504,25 @@ export function ProfileView() {
                     </p>
                   )}
                 </div>
+
+                {/*Edit Radius*/}
+                <div className="w-full space-y-2">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Distance Radius (km)
+                  </label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="500"
+                    value={editRadiusKm}
+                    onChange={(e) => setEditRadiusKm(e.target.value)}
+                    placeholder="25"
+                    className="text-sm"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Listings farther than this radius will be hidden from your feed.
+                  </p>
+                </div>
               </div>
 
               {/* Bio */}
@@ -557,7 +596,13 @@ export function ProfileView() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold">My Items for Trade</h3>
               <button
-                onClick={() => setIsAddModalOpen(true)}
+                onClick={() => {
+                  if (!profile.location) {
+                    alert("Please set your location in your profile before adding an item.");
+                    return;
+                  }
+                  setIsAddModalOpen(true);
+                }}
                 className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-full hover:shadow-lg transition-shadow"
               >
                 <Plus className="w-4 h-4" />
@@ -580,7 +625,13 @@ export function ProfileView() {
                 </div>
                 <p className="text-gray-600 mb-4">You haven't added any items yet.</p>
                 <button
-                  onClick={() => setIsAddModalOpen(true)}
+                  onClick={() => {
+                    if (!profile.location) {
+                      alert("Please set your location in your profile before adding an item.");
+                      return;
+                    }
+                    setIsAddModalOpen(true);
+                  }}
                   className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-2 rounded-full hover:shadow-lg transition-shadow"
                 >
                   Add Your First Item
@@ -627,6 +678,11 @@ export function ProfileView() {
                             <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full capitalize">
                               {item.condition}
                             </span>
+                            {item.locationLabel && (
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                                {item.locationLabel}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -688,12 +744,19 @@ export function ProfileView() {
           onClose={() => setIsAddModalOpen(false)}
           onAdd={async (partialItem) => {
             try {
+              if (!profile.location) {
+                alert("Please set your location in your profile before adding an item.");
+                return;
+              }
+
               const newItemData = {
                 ...partialItem,
                 userId: uid,
                 userName: profile.name,
                 userAvatar: profile.photoURL || currentUser.avatar,
                 createdAt: Date.now(),
+                location: profile.location,
+                locationLabel: profile.locationLabel,
               };
 
               const newId = await saveNewItem(newItemData);
