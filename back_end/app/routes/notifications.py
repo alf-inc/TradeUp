@@ -11,10 +11,9 @@ def get_notifications(userId: str, unreadOnly: bool = False, limit: int = 50):
     if unreadOnly:
         q = q.where("read", "==", False)
 
-    # Order by createdAt desc (needs createdAt present; first few may be null until server sets)
-    q = q.order_by("createdAt", direction="DESCENDING").limit(limit)
-
-    docs = q.stream()
+    docs = list(q.stream())
+    docs.sort(key=lambda d: d.to_dict().get("createdAt") or "", reverse=True)
+    docs = docs[:limit]
     out = []
     for d in docs:
         item = d.to_dict()
