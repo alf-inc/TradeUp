@@ -18,6 +18,8 @@ router = APIRouter(prefix="/chats", tags=["chats"])
 class ChatInitiateRequest(BaseModel):
     currentUserId: str
     likedItemId: str
+    mutualItemId: str
+    notificationId: str
 
 
 class SendMessageRequest(BaseModel):
@@ -31,6 +33,8 @@ def create_or_get_chat(payload: ChatInitiateRequest):
         db=db,
         current_user_id=payload.currentUserId,
         liked_item_id=payload.likedItemId,
+        mutual_item_id=payload.mutualItemId,
+        notification_id=payload.notificationId,
     )
 
 

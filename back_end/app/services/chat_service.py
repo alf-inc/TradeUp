@@ -30,10 +30,16 @@ def _get_item_owner_id(db, item_id: str) -> str:
     return owner_user_id
 
 
-def initiate_chat(db, current_user_id: str, liked_item_id: str) -> Dict[str, Any]:
+def _build_item_pair_key(item_a: str, item_b: str) -> str:
+    items = sorted([item_a, item_b])
+    return f"{items[0]}__{items[1]}"
+
+
+def initiate_chat(db, current_user_id: str, liked_item_id: str, mutual_item_id: str, notification_id: str) -> Dict[str, Any]:
     """
-    Create or return an existing chat between the liker and the owner of liked_item_id,
-    but only if they are a mutual match.
+    Create or return an existing chat for a specific item-pair match.
+    Uses a composite key of sorted(users) + sorted(items) so both users
+    independently resolve to the same chat document.
     """
 
     target_user_id = _get_item_owner_id(db, liked_item_id)
@@ -50,10 +56,13 @@ def initiate_chat(db, current_user_id: str, liked_item_id: str) -> Dict[str, Any
 
     participants = sorted([current_user_id, target_user_id])
     participants_key = _build_participants_key(current_user_id, target_user_id)
+    item_pair_key = _build_item_pair_key(liked_item_id, mutual_item_id)
+    # Composite key: unique per user-pair AND item-pair
+    composite_key = f"{participants_key}__{item_pair_key}"
 
     existing_stream = (
         db.collection("chats")
-        .where("participantsKey", "==", participants_key)
+        .where("compositeKey", "==", composite_key)
         .limit(1)
         .stream()
     )
@@ -65,6 +74,7 @@ def initiate_chat(db, current_user_id: str, liked_item_id: str) -> Dict[str, Any
         return {
             "chatId": doc.id,
             "participants": data.get("participants", participants),
+            "notificationId": data.get("notificationId", notification_id),
             "createdAt": data.get("createdAt"),
             "existing": True,
         }
@@ -72,6 +82,8 @@ def initiate_chat(db, current_user_id: str, liked_item_id: str) -> Dict[str, Any
     chat_data = {
         "participants": participants,
         "participantsKey": participants_key,
+        "compositeKey": composite_key,
+        "notificationId": notification_id,
         "createdAt": firestore.SERVER_TIMESTAMP,
         "lastMessage": "",
         "lastMessageAt": None,
@@ -192,9 +204,10 @@ def get_user_chats(db, user_id: str) -> List[Dict[str, Any]]:
         chats.append({
             "chatId": doc.id,
             "participants": data.get("participants", []),
-            "createdAt": data.get("createdAt"),
+            "notificationId": data.get("notificationId", ""),
+            "createdAt": _format_timestamp(data.get("createdAt")),
             "lastMessage": data.get("lastMessage", ""),
-            "lastMessageAt": data.get("lastMessageAt"),
+            "lastMessageAt": _format_timestamp(data.get("lastMessageAt")),
         })
 
     return chats

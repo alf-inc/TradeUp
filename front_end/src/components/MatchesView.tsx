@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { MessageCircle, Clock, ArrowLeft } from 'lucide-react';
+import { MessageCircle, Clock } from 'lucide-react';
 import { auth, db } from '../firebase/firebase'; 
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { ChatWindow } from './ChatWindow'; 
@@ -19,26 +19,39 @@ interface MatchNotification {
 }
 
 interface HydratedMatch {
-  id: string; 
+  id: string;
   item: any;
   matchedWith: any;
+  otherUserId: string;
   timestamp: Date;
-  status?: 'accepted' | 'rejected'; 
+  status?: 'accepted' | 'rejected';
   confirmed?: boolean;
+  chatId?: string;
+  lastMessage?: string;
+  lastMessageAt?: Date;
 }
+
+const SESSION_KEY = 'tradeup_active_chat';
 
 export function MatchesView() {
   const [matches, setMatches] = useState<HydratedMatch[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // State to track if we are viewing a specific chat
   const [activeChat, setActiveChat] = useState<{
     chatId: string;
     notificationId: string;
     matchedWith: any;
-    status?: 'accepted' | 'rejected'; 
+    status?: 'accepted' | 'rejected';
     confirmed?: boolean;
-  } | null>(null);
+  } | null>(() => {
+    try {
+      const saved = sessionStorage.getItem(SESSION_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
 
   const formatTimestamp = (date: Date) => {
     const now = new Date();
@@ -52,34 +65,53 @@ export function MatchesView() {
     return `${diffDays}d ago`;
   };
 
+  const openChat = (chatId: string, match: HydratedMatch) => {
+    const chat = {
+      chatId,
+      notificationId: match.id,
+      matchedWith: match.matchedWith,
+      status: match.status,
+      confirmed: match.confirmed,
+    };
+    try {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(chat));
+    } catch { /* ignore */ }
+    setActiveChat(chat);
+  };
+
+  const closeChat = () => {
+    try {
+      sessionStorage.removeItem(SESSION_KEY);
+    } catch { /* ignore */ }
+    setActiveChat(null);
+  };
+
   const handleOpenChat = async (match: HydratedMatch) => {
     if (!auth.currentUser) return;
+
+    // If we already have the chatId from preloading, skip the API call
+    if (match.chatId) {
+      openChat(match.chatId, match);
+      return;
+    }
 
     try {
       const res = await fetch('http://localhost:8000/chats/initiate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           currentUserId: auth.currentUser.uid,
           likedItemId: match.matchedWith.id,
+          mutualItemId: match.item.id,
+          notificationId: match.id,
         }),
       });
 
       if (!res.ok) throw new Error('Failed to initiate chat');
 
       const data = await res.json();
-      
-      // Save both the new ID and the user data to state
       if (data.chatId) {
-        setActiveChat({
-          chatId: data.chatId,
-          notificationId: match.id,
-          matchedWith: match.matchedWith,
-          status: match.status,       
-          confirmed: match.confirmed
-        });
+        openChat(data.chatId, match);
       }
     } catch (error) {
       console.error("Error opening chat:", error);
@@ -106,8 +138,8 @@ export function MatchesView() {
 
         const hydratedMatches = await Promise.all(
           notifications.map(async (notif): Promise<HydratedMatch | null> => {
-            const { itemId, mutualItemId } = notif.payload;
-            
+            const { itemId, mutualItemId, otherUserId } = notif.payload as any;
+
             const myItemSnap = await getDoc(doc(db, "items", mutualItemId));
             const theirItemSnap = await getDoc(doc(db, "items", itemId));
 
@@ -117,17 +149,46 @@ export function MatchesView() {
 
             return {
               id: notif.id,
+              otherUserId: otherUserId || '',
               timestamp: createdAtDate,
               item: { ...myItemSnap.data(), id: mutualItemId },
               matchedWith: { ...theirItemSnap.data(), id: itemId },
-              status: notif.status,       
-              confirmed: notif.confirmed
+              status: notif.status,
+              confirmed: notif.confirmed,
             };
           })
         );
 
         const cleanMatches = hydratedMatches.filter((m): m is HydratedMatch => m !== null);
-        
+
+        // Fetch all chats to get lastMessage preview and chatId for each match
+        try {
+          const chatsRes = await fetch(`http://localhost:8000/chats?userId=${user.uid}`);
+          if (chatsRes.ok) {
+            const chatsData = await chatsRes.json();
+            const chats: Array<{ chatId: string; participants: string[]; notificationId: string; lastMessage: string; lastMessageAt: any }> = chatsData.chats || [];
+
+            for (const match of cleanMatches) {
+              // Match by notificationId so same-user/different-item chats stay separate
+              const chat = chats.find(c => c.notificationId === match.id);
+              if (chat) {
+                match.chatId = chat.chatId;
+                match.lastMessage = chat.lastMessage || '';
+                match.lastMessageAt = chat.lastMessageAt ? new Date(chat.lastMessageAt) : undefined;
+              }
+            }
+          }
+        } catch {
+          // Non-critical: chat previews won't show but matches still load
+        }
+
+        // Sort by most recent chat activity, then by match timestamp
+        cleanMatches.sort((a, b) => {
+          const aTime = a.lastMessageAt ?? a.timestamp;
+          const bTime = b.lastMessageAt ?? b.timestamp;
+          return bTime.getTime() - aTime.getTime();
+        });
+
         setMatches(cleanMatches);
 
       } catch (error) {
@@ -143,13 +204,14 @@ export function MatchesView() {
   // Chat View
   if (activeChat) {
     return (
-      <ChatWindow 
-        chatId={activeChat.chatId} 
+      <ChatWindow
+        key={activeChat.chatId}
+        chatId={activeChat.chatId}
         notificationId={activeChat.notificationId}
         matchedWith={activeChat.matchedWith}
-        initialStatus={activeChat.status}      
+        initialStatus={activeChat.status}
         isFullyConfirmed={activeChat.confirmed}
-        onClose={() => setActiveChat(null)} 
+        onClose={closeChat}
       />
     );
   }
@@ -187,7 +249,11 @@ export function MatchesView() {
               <div className="p-4">
                 <div className="flex items-center gap-2 mb-4 text-sm text-gray-500">
                   <Clock className="w-4 h-4" />
-                  <span>Matched {formatTimestamp(match.timestamp)}</span>
+                  <span>
+                    {match.lastMessageAt
+                      ? `Active ${formatTimestamp(match.lastMessageAt)}`
+                      : `Matched ${formatTimestamp(match.timestamp)}`}
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 mb-4">
@@ -230,10 +296,19 @@ export function MatchesView() {
                     alt={match.matchedWith.userName}
                     className="w-10 h-10 rounded-full object-cover"
                   />
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <p className="font-medium">{match.matchedWith.userName}</p>
-                    <p className="text-sm text-gray-500">Mutual match!</p>
+                    {match.lastMessage ? (
+                      <p className="text-sm text-gray-500 truncate">{match.lastMessage}</p>
+                    ) : (
+                      <p className="text-sm text-gray-400 italic">No messages yet</p>
+                    )}
                   </div>
+                  {match.lastMessageAt && (
+                    <span className="text-xs text-gray-400 shrink-0">
+                      {formatTimestamp(match.lastMessageAt)}
+                    </span>
+                  )}
                 </div>
 
                 {/* Open Chat Button */}
