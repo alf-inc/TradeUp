@@ -597,10 +597,6 @@ export function ProfileView() {
               <h3 className="text-xl font-bold">My Items for Trade</h3>
               <button
                 onClick={() => {
-                  if (!profile.location) {
-                    alert("Please set your location in your profile before adding an item.");
-                    return;
-                  }
                   setIsAddModalOpen(true);
                 }}
                 className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-full hover:shadow-lg transition-shadow"
@@ -626,10 +622,6 @@ export function ProfileView() {
                 <p className="text-gray-600 mb-4">You haven't added any items yet.</p>
                 <button
                   onClick={() => {
-                    if (!profile.location) {
-                      alert("Please set your location in your profile before adding an item.");
-                      return;
-                    }
                     setIsAddModalOpen(true);
                   }}
                   className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-2 rounded-full hover:shadow-lg transition-shadow"
@@ -741,13 +733,11 @@ export function ProfileView() {
 
       {isAddModalOpen && (
         <AddItemModal
-          onClose={() => setIsAddModalOpen(false)}
-          onAdd={async (partialItem) => {
+            onClose={() => setIsAddModalOpen(false)}
+            defaultLocation={profile.location}
+            defaultLocationLabel={profile.locationLabel}
+            onAdd={async (partialItem) => {
             try {
-              if (!profile.location) {
-                alert("Please set your location in your profile before adding an item.");
-                return;
-              }
 
               const newItemData = {
                 ...partialItem,
@@ -755,8 +745,6 @@ export function ProfileView() {
                 userName: profile.name,
                 userAvatar: profile.photoURL || currentUser.avatar,
                 createdAt: Date.now(),
-                location: profile.location,
-                locationLabel: profile.locationLabel,
               };
 
               const newId = await saveNewItem(newItemData);
