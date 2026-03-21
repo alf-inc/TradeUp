@@ -46,7 +46,11 @@ function getBrowserLocation(): Promise<Location> {
   });
 }
 
-export function ProfileView() {
+type ProfileViewProps = {
+  setActiveView: (view: 'Listings' | 'matches' | 'profile' | 'saved') => void;
+};
+
+export function ProfileView({ setActiveView }: ProfileViewProps) {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
 
@@ -531,6 +535,16 @@ export function ProfileView() {
               </div>
             </div>
           )}
+
+          {!isEditingProfile && (
+            <button
+              onClick={() => setActiveView('saved')}
+              className="w-full mt-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-shadow"
+            >
+              View Saved Items
+            </button>
+          )}
+          
         </div>
 
         {/* Tabbed Section: My Items / Trade History */}
