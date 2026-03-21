@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { currentUser } from "../data/mockData";
-import { Plus, Edit2, Trash2, X, Check, History } from "lucide-react";
+import { Plus, Edit2, Trash2, X, Check, History, RefreshCw } from "lucide-react";
 import { AddItemModal } from "./AddItemModal";
 import { TradeHistoryCard } from "./TradeHistoryCard";
 import { Input } from "./ui/input";
@@ -15,11 +15,11 @@ import {
   saveNewItem,
   getUserItems,
   deleteItem,
-  getTradeHistory,
   geocodeLocationQuery,
   type Location,
 } from "../firebase/firebase";
 import type { CompletedTrade } from "../types";
+import { fetchTradeHistory } from "../api/trades";
 
 // Helper to get current browser/device location
 function getBrowserLocation(): Promise<Location> {
@@ -87,7 +87,7 @@ export function ProfileView() {
     radiusKm: 25,
   });
 
-  // Edit form state
+  // Edit form state (URL + Bio + Name + Location)
   const [editBio, setEditBio] = useState("");
   const [editPhotoURL, setEditPhotoURL] = useState("");
   const [editName, setEditName] = useState("");
@@ -100,12 +100,14 @@ export function ProfileView() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [saveError, setSaveError] = useState<string>("");
 
+  // NEW: Item loading + error
   const [loadingItems, setLoadingItems] = useState(false);
   const [itemsError, setItemsError] = useState("");
 
   const [tradeHistory, setTradeHistory] = useState<CompletedTrade[]>([]);
   const [loadingTrades, setLoadingTrades] = useState(false);
   const [tradesError, setTradesError] = useState("");
+  const [tradesFetchKey, setTradesFetchKey] = useState(0);
 
   // Load profile + items from Firestore when uid is available
   useEffect(() => {
@@ -125,13 +127,9 @@ export function ProfileView() {
         const averageRating =
           typeof p.average_rating === "number" ? p.average_rating : 0;
         const ratingsReceivedCount =
-          typeof p.ratings_received_count === "number"
-            ? p.ratings_received_count
-            : 0;
+          typeof p.ratings_received_count === "number" ? p.ratings_received_count : 0;
         const completedTradeCount =
-          typeof p.completed_trade_count === "number"
-            ? p.completed_trade_count
-            : 0;
+          typeof p.completed_trade_count === "number" ? p.completed_trade_count : 0;
 
         const location =
           p.location &&
@@ -140,8 +138,7 @@ export function ProfileView() {
             ? p.location
             : null;
 
-        const locationLabel =
-          typeof p.locationLabel === "string" ? p.locationLabel : "";
+        const locationLabel = typeof p.locationLabel === "string" ? p.locationLabel : "";
         const radiusKm = typeof p.radiusKm === "number" ? p.radiusKm : 25;
 
         setProfile((prev) => ({
@@ -156,7 +153,6 @@ export function ProfileView() {
           locationLabel,
           radiusKm,
         }));
-
         setEditName(name);
         setEditBio(bio);
         setEditPhotoURL(photoURL);
@@ -164,8 +160,12 @@ export function ProfileView() {
         setEditLocationLabel(locationLabel);
         setEditLocationQuery(locationLabel);
 
+        // Load user's items
         const userItems = await getUserItems(uid);
+
+        // Optional: sort newest first if createdAt exists
         userItems.sort((a: any, b: any) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+
         setItems(userItems);
       } catch (error) {
         console.error("Error loading profile/items:", error);
@@ -177,40 +177,31 @@ export function ProfileView() {
     })();
   }, [uid]);
 
-  // Load completed trade history from backend when uid is available
+  // Fetch trade history from backend
   useEffect(() => {
-    if (!uid) {
-      setTradeHistory([]);
-      setTradesError("");
-      setLoadingTrades(false);
-      return;
-    }
+    if (!uid) return;
 
     (async () => {
       setLoadingTrades(true);
       setTradesError("");
-
       try {
-        const history = await getTradeHistory(uid);
-        setTradeHistory(history);
-
-        setProfile((prev) => ({
-          ...prev,
-          completedTradeCount: history.length,
-        }));
-      } catch (error) {
-        console.error("Error loading trade history:", error);
-        setTradesError("Failed to load trade history.");
+        const trades = await fetchTradeHistory(uid);
+        setTradeHistory(trades);
+      } catch (e) {
+        console.error("Failed to load trade history:", e);
+        setTradesError("Could not load trade history. Please try again.");
       } finally {
         setLoadingTrades(false);
       }
     })();
-  }, [uid]);
+  }, [uid, tradesFetchKey]);
 
   const handleDeleteItem = async (itemId: string) => {
     if (!confirm("Are you sure you want to delete this item?")) return;
     try {
-      await deleteItem(itemId);
+      await deleteItem(itemId); // Delete from Firestore
+
+      // Functional update prevents stale-state bugs
       setItems((prev) => prev.filter((item) => item.id !== itemId));
     } catch (e) {
       console.error("Failed to delete item", e);
@@ -273,9 +264,18 @@ export function ProfileView() {
       const newPhotoURL = editPhotoURL.trim();
 
       if (!editLocation) {
+        setSavingProfile(false);
         setSaveError("Please set a valid location before saving.");
         return;
       }
+
+      console.log("[US2] saving profile to firestore...", {
+        newName,
+        newBio,
+        newPhotoURL,
+        editLocation,
+        editLocationLabel,
+      });
 
       await saveMyProfile(uid, {
         name: newName,
@@ -283,7 +283,6 @@ export function ProfileView() {
         photoURL: newPhotoURL,
         location: editLocation,
         locationLabel: editLocationLabel || editLocationQuery.trim(),
-        radiusKm: profile.radiusKm,
       });
 
       setProfile((prev) => ({
@@ -297,13 +296,14 @@ export function ProfileView() {
 
       setIsEditingProfile(false);
     } catch (e: any) {
-      console.error("[US2] save failed", e);
+      console.error("[US2] save failed ❌", e);
       setSaveError(e?.message ?? String(e));
     } finally {
       setSavingProfile(false);
     }
   };
 
+  // Auth gating
   if (!authReady) {
     return <div className="p-6">Checking login...</div>;
   }
@@ -312,9 +312,7 @@ export function ProfileView() {
     return (
       <div className="p-6">
         <div className="bg-white rounded-2xl p-6 shadow-lg">
-          <h2 className="text-xl font-bold mb-2">
-            {(profile.name?.trim() ? profile.name : "My Profile").slice(0, 11)}
-          </h2>
+          <h2 className="text-xl font-bold mb-2">{(profile.name?.trim() ? profile.name : "My Profile").slice(0, 11)}</h2>
           <p className="text-gray-600">Please log in to edit your profile.</p>
         </div>
       </div>
@@ -324,6 +322,7 @@ export function ProfileView() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="p-6">
+        {/* Profile Header */}
         <div className="bg-white rounded-2xl p-6 shadow-lg mb-6">
           {loadingProfile ? (
             <div className="text-gray-600">Loading profile...</div>
@@ -401,6 +400,7 @@ export function ProfileView() {
                 </div>
               </div>
 
+              {/* Preview */}
               <div className="flex flex-col items-center gap-4 py-4">
                 <div className="relative group">
                   <img
@@ -413,6 +413,7 @@ export function ProfileView() {
                   />
                 </div>
 
+                {/*Edit Name*/}
                 <div className="w-full space-y-2">
                   <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Edit Name
@@ -426,6 +427,7 @@ export function ProfileView() {
                   />
                 </div>
 
+                {/*Edit Photo*/}
                 <div className="w-full space-y-2">
                   <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Profile Photo URL
@@ -441,6 +443,7 @@ export function ProfileView() {
                   </p>
                 </div>
 
+                {/*Edit Location*/}
                 <div className="w-full space-y-2">
                   <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Location
@@ -483,6 +486,7 @@ export function ProfileView() {
                 </div>
               </div>
 
+              {/* Bio */}
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Bio
@@ -497,6 +501,7 @@ export function ProfileView() {
                 <div className="text-xs text-gray-400 text-right">{editBio.length}/160</div>
               </div>
 
+              {/* Error */}
               {saveError && <div className="text-sm text-red-600">Save failed: {saveError}</div>}
 
               <Button
@@ -509,6 +514,7 @@ export function ProfileView() {
             </div>
           )}
 
+          {/* Stats */}
           {!isEditingProfile && (
             <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
               <div className="text-center">
@@ -520,15 +526,14 @@ export function ProfileView() {
                 <p className="text-sm text-gray-500">Matches</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-purple-600">
-                  {profile.completedTradeCount}
-                </p>
+                <p className="text-2xl font-bold text-purple-600">{profile.completedTradeCount}</p>
                 <p className="text-sm text-gray-500">Trades</p>
               </div>
             </div>
           )}
         </div>
 
+        {/* Tabbed Section: My Items / Trade History */}
         <Tabs defaultValue="listings" className="mb-6">
           <TabsList className="w-full bg-gray-100 p-1 rounded-xl mb-4">
             <TabsTrigger
@@ -547,6 +552,7 @@ export function ProfileView() {
             </TabsTrigger>
           </TabsList>
 
+          {/* ── My Listings Tab ── */}
           <TabsContent value="listings">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold">My Items for Trade</h3>
@@ -631,9 +637,18 @@ export function ProfileView() {
             )}
           </TabsContent>
 
+          {/* ── Trade History Tab ── */}
           <TabsContent value="history">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold">Trade History</h3>
+              <button
+                onClick={() => setTradesFetchKey((k) => k + 1)}
+                disabled={loadingTrades}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50"
+                title="Refresh trade history"
+              >
+                <RefreshCw className={`w-4 h-4 text-gray-500 ${loadingTrades ? "animate-spin" : ""}`} />
+              </button>
             </div>
 
             {loadingTrades ? (
@@ -679,12 +694,13 @@ export function ProfileView() {
                 userName: profile.name,
                 userAvatar: profile.photoURL || currentUser.avatar,
                 createdAt: Date.now(),
-                location: profile.location,
               };
 
               const newId = await saveNewItem(newItemData);
 
+              // Functional update to avoid stale state
               setItems((prev) => [{ ...newItemData, id: newId }, ...prev]);
+
               setIsAddModalOpen(false);
             } catch (error) {
               console.error("Failed to add item:", error);
