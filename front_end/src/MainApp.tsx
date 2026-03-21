@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import SwipeView from './components/SwipeView';
 import { ProfileView } from './components/ProfileView';
 import { MatchesView } from './components/MatchesView';
+import { SavedItemsView } from './components/SavedItemsView';
 import { Heart, User, MessageCircle } from 'lucide-react';
 
 import { auth, getLikedItems } from "./firebase/firebase";
@@ -37,7 +38,7 @@ export default function App() {
     return () => unsub();
   }, []);
   
-  const [activeView, setActiveView] = useState<'Listings' | 'matches' | 'profile'>('Listings');
+  const [activeView, setActiveView] = useState<'Listings' | 'matches' | 'profile' | 'saved'>('Listings');
 
   return (
     <div className={`min-h-screen bg-blue-50`}>
@@ -65,7 +66,8 @@ export default function App() {
             />
           )}
           {activeView === 'matches' && <MatchesView />}
-          {activeView === 'profile' && <ProfileView />}
+          {activeView === 'profile' && <ProfileView setActiveView={setActiveView} />}
+          {activeView === 'saved' && <SavedItemsView />}
         </main>
 
         {/* Bottom Navigation */}
