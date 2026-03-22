@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
-import { X, MapPin, LocateFixed } from 'lucide-react';
+import { X } from 'lucide-react';
 import type { Item, Condition } from "../types";
 import type { Location } from "../firebase/firebase";
 import { geocodeLocationQuery } from "../firebase/firebase";
 import { currentUser } from '../data/mockData';
-import { Button } from "./ui/button";
 
 interface AddItemModalProps {
   onClose: () => void;
@@ -235,53 +234,60 @@ export function AddItemModal({
               onChange={(e) => setFormData({ ...formData, category: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
             >
-              {categories.map((category) => (
-                <option key={category} value={category}>{category}</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
               ))}
             </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-2">Condition*</label>
-            <select
-              value={formData.condition}
-              onChange={(e) => setFormData({ ...formData, condition: e.target.value as Condition })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
-            >
-              {conditions.map((condition) => (
-                <option key={condition.value} value={condition.value}>
-                  {condition.label}
-                </option>
+            <div className="grid grid-cols-2 gap-2">
+              {conditions.map((cond) => (
+                <button
+                  key={cond.value}
+                  type="button"
+                  onClick={() =>
+                    setFormData({
+                      ...formData,
+                      condition: cond.value as 'new' | 'like-new' | 'good' | 'fair',
+                    })
+                  }
+                  className={`px-4 py-2 rounded-lg border-2 transition-colors ${
+                    formData.condition === cond.value
+                      ? 'border-purple-600 bg-purple-50 text-purple-700 font-medium'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  {cond.label}
+                </button>
               ))}
-            </select>
+            </div>
           </div>
 
-          {/* Item Location */}
           <div className="space-y-3 rounded-xl border border-gray-200 p-4 bg-gray-50">
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-gray-500" />
-              <label className="text-sm font-medium">Item Location*</label>
-            </div>
+            <label className="block text-sm font-medium">Item Location*</label>
 
             <div className="flex flex-wrap gap-2">
-              <Button
+              <button
                 type="button"
-                variant="outline"
                 onClick={handleUseProfileLocation}
                 disabled={resolvingLocation}
+                className="px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
                 Use Profile Location
-              </Button>
+              </button>
 
-              <Button
+              <button
                 type="button"
-                variant="outline"
                 onClick={handleUseCurrentLocation}
                 disabled={resolvingLocation}
+                className="px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
-                <LocateFixed className="w-4 h-4 mr-2" />
                 {resolvingLocation ? "Getting location..." : "Use Current Location"}
-              </Button>
+              </button>
             </div>
 
             <div>
@@ -296,14 +302,14 @@ export function AddItemModal({
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
                   placeholder="Toronto, ON"
                 />
-                <Button
+                <button
                   type="button"
-                  variant="secondary"
                   onClick={handleResolveManualLocation}
                   disabled={resolvingLocation}
+                  className="px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >
                   Resolve
-                </Button>
+                </button>
               </div>
             </div>
 
@@ -325,13 +331,13 @@ export function AddItemModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              className="flex-1 px-4 py-3 border border-gray-300 rounded-full font-medium hover:bg-gray-50 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg transition-shadow font-medium"
+              className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-medium hover:shadow-lg transition-shadow"
             >
               Add Item
             </button>
