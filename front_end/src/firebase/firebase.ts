@@ -95,6 +95,8 @@ export type FeedItem = {
   userName: string;
   userAvatar: string;
   createdAt: number;
+  location?: Location | null;
+  locationLabel?: string;
 };
 
 export type GetFeedOptions = {
@@ -183,7 +185,9 @@ export interface ItemData {
   userId: string;
   userName: string;
   userAvatar: string;
-  createdAt: number; 
+  createdAt: number;
+  location?: Location | null;
+  locationLabel?: string;
 }
 
 // Save new item

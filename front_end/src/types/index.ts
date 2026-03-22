@@ -30,6 +30,9 @@ export interface Item {
   userId: string;
   userName: string;
   userAvatar: string;
+  location?: Location | null;
+  locationLabel?: string;
+  createdAt?: number;
 }
 
 export interface UserProfile {
@@ -38,6 +41,9 @@ export interface UserProfile {
   avatar: string;
   bio: string;
   items: Item[];
+  location?: Location | null;
+  locationLabel?: string;
+  radiusKm?: number;
 }
 
 export interface Match {
