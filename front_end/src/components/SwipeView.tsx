@@ -1,9 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
 import { Item, MatchItem } from '../types';
-import { Heart, Package, ChevronLeft, ChevronRight, Bookmark } from 'lucide-react';
-import { getFeedItems, auth, addLikedItem, removeLikedItem } from '../firebase/firebase';
+import { Heart, Package, ChevronLeft, ChevronRight, Bookmark, MapPin } from 'lucide-react';
+import {
+  getFeedItems,
+  getMyProfile,
+  auth,
+  addLikedItem,
+  removeLikedItem,
+  type Location,
+} from '../firebase/firebase';
+import { distanceKm, withinRadius } from '../utils/distance';
 import { MatchPopupModal } from './MatchPopupModal';
-import { useCreateOffer } from '../utils/useCreateOffer';
+import { useCreateOffer } from '../utils/Usecreateoffer';
 import { toggleSavedListing, getSavedListings } from '../api/savedListings';
 
 type SwipeViewProps = {
@@ -12,8 +20,12 @@ type SwipeViewProps = {
   setLikedItems: React.Dispatch<React.SetStateAction<string[]>>;
 };
 
+type FeedItemWithDistance = Item & {
+  distanceKmValue?: number;
+};
+
 export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeViewProps) {
-  const [items, setItems] = useState<Item[]>([]);
+  const [items, setItems] = useState<FeedItemWithDistance[]>([]);
   const [order, setOrder] = useState<number[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [imageTrackById, setImageTrackById] = useState<Record<string, number>>({});
@@ -23,10 +35,42 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
   const containerRef = useRef<HTMLDivElement>(null);
   const [savedItems, setSavedItems] = useState<string[]>([]);
   const [savingItems, setSavingItems] = useState<string[]>([]);
+  const [userLocation, setUserLocation] = useState<Location | null>(null);
+  const [radiusKm, setRadiusKm] = useState<number>(25);
+  const [loadingFeed, setLoadingFeed] = useState(false);
 
   // ── Offer creation hook ────────────────────────────────────────────────────
   const { createOffer } = useCreateOffer();
   // ──────────────────────────────────────────────────────────────────────────
+
+  // Load current user's saved distance settings
+  useEffect(() => {
+    (async () => {
+      const uid = userId ?? auth.currentUser?.uid;
+      if (!uid) return;
+
+      try {
+        const profile = await getMyProfile(uid);
+
+        const location =
+          profile.location &&
+          typeof profile.location.lat === 'number' &&
+          typeof profile.location.lng === 'number'
+            ? profile.location
+            : null;
+
+        const savedRadius =
+          typeof profile.radiusKm === 'number' && profile.radiusKm > 0
+            ? profile.radiusKm
+            : 25;
+
+        setUserLocation(location);
+        setRadiusKm(savedRadius);
+      } catch (e) {
+        console.error('Failed to load user distance settings:', e);
+      }
+    })();
+  }, [userId]);
 
   useEffect(() => {
     (async () => {
@@ -36,39 +80,65 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
         return;
       }
 
-      const { items: feedItems } = await getFeedItems({
-        excludeUserId: uid ?? undefined,
-        limitCount: 50,
-      });
-
-      setItems(feedItems as unknown as Item[]);
-      setOrder(buildRandomOrder(feedItems as unknown as Item[]));
-      setCurrentIndex(0);
-
       try {
-        const saved = await getSavedListings(uid);
+        setLoadingFeed(true);
 
-        const savedArray = Array.isArray(saved)
-          ? saved
-          : Array.isArray(saved?.savedListings)
-          ? saved.savedListings
-          : Array.isArray(saved?.listings)
-          ? saved.listings
-          : Array.isArray(saved?.data)
-          ? saved.data
-          : [];
+        const { items: feedItems } = await getFeedItems({
+          excludeUserId: uid ?? undefined,
+          limitCount: 50,
+        });
 
-        const savedIds = savedArray
-          .map((item: any) => item.listingId)
-          .filter(Boolean);
+        let visibleItems: FeedItemWithDistance[] = (feedItems as unknown as Item[]).map((item) => ({
+          ...item,
+        }));
 
-        setSavedItems(savedIds);
-      } catch (error) {
-        console.warn("Failed to load saved listings:", error);
+        // Only apply radius filtering if the user has a saved location
+        if (userLocation) {
+          visibleItems = visibleItems
+            .filter((item) => item.location)
+            .map((item) => ({
+              ...item,
+              distanceKmValue: distanceKm(userLocation, item.location as Location),
+            }))
+            .filter((item) =>
+              item.location
+                ? withinRadius(userLocation, item.location as Location, radiusKm)
+                : false
+            );
+        }
+
+        setItems(visibleItems);
+        setOrder(buildRandomOrder(visibleItems));
+        setCurrentIndex(0);
+
+        try {
+          const saved = await getSavedListings(uid);
+
+          const savedArray = Array.isArray(saved)
+            ? saved
+            : Array.isArray((saved as any)?.savedListings)
+            ? (saved as any).savedListings
+            : Array.isArray((saved as any)?.listings)
+            ? (saved as any).listings
+            : Array.isArray((saved as any)?.data)
+            ? (saved as any).data
+            : [];
+
+          const savedIds = savedArray
+            .map((item: any) => item.listingId)
+            .filter(Boolean);
+
+          setSavedItems(savedIds);
+        } catch (error) {
+          console.warn("Failed to load saved listings:", error);
+        }
+      } catch (e) {
+        console.error("Failed to load feed items:", e);
+      } finally {
+        setLoadingFeed(false);
       }
-      
     })();
-  }, [userId]);
+  }, [userId, userLocation, radiusKm]);
 
   const orderedItems = order.map((index) => items[index]).filter(Boolean);
   const currentItem = orderedItems[currentIndex];
@@ -129,7 +199,7 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
     }
   };
 
-    const handleSave = async (item: Item) => {
+  const handleSave = async (item: Item) => {
     const uid = userId ?? auth.currentUser?.uid;
     if (!uid) {
       console.warn("No user logged in");
@@ -206,7 +276,7 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentItem]);
+  }, [currentItem, imageTransitioningById]);
 
   useEffect(() => {
     if (items.length <= 1 || order.length === 0) return;
@@ -217,13 +287,38 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
 
   return (
     <div className="h-full relative">
+      {loadingFeed && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-black/60 text-white text-sm px-3 py-1.5 rounded-full backdrop-blur-sm">
+          Loading nearby items...
+        </div>
+      )}
+
+      {!loadingFeed && userLocation && orderedItems.length > 0 && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-black/60 text-white text-sm px-3 py-1.5 rounded-full backdrop-blur-sm">
+          Showing items within {radiusKm} km
+        </div>
+      )}
+
+      {!loadingFeed && orderedItems.length === 0 && (
+        <div className="h-full flex items-center justify-center p-6 text-center">
+          <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm">
+            <h3 className="text-xl font-bold mb-2">No items found</h3>
+            <p className="text-gray-600">
+              {userLocation
+                ? `There are no listings within ${radiusKm} km right now.`
+                : 'There are no listings available right now.'}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Scrollable Content Container */}
       <div
         ref={containerRef}
         className="h-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
-        {orderedItems.map((item, index) => (
+        {orderedItems.map((item) => (
           <div
             key={item.id}
             className="h-full snap-start snap-always relative flex items-center justify-center"
@@ -368,7 +463,7 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
                 <h3 className="text-2xl font-bold mb-2">{item.title}</h3>
                 <p className="text-white/90 text-sm mb-3 line-clamp-3">{item.description}</p>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <div className="bg-white/90 text-gray-900 backdrop-blur-sm px-3 py-1.5 rounded-full text-sm font-medium">
                     {item.category}
                   </div>
@@ -376,6 +471,12 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
                     <Package className="w-4 h-4" />
                     <span className="capitalize">{item.condition}</span>
                   </div>
+                  {typeof item.distanceKmValue === 'number' && (
+                    <div className="flex items-center gap-1 bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full text-sm">
+                      <MapPin className="w-4 h-4" />
+                      <span>{item.distanceKmValue.toFixed(1)} km away</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -456,5 +557,4 @@ function appendRandomOrder(items: Item[], currentOrder: number[]) {
   const lastId = items[lastIndex]?.id;
   const nextBatch = buildRandomOrder(items, lastId);
 
-  return [...currentOrder, ...nextBatch];
-}
+  return [...currentOrder, ...nextBatch];}
