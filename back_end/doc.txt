@@ -47,6 +47,9 @@ macOS / Linux:
 Windows (PowerShell):
     venv\Scripts\activate
 
+windows (Git Bash):
+    source venv\\Scripts\\activate
+
 
 You should now see `(venv)` in your terminal.
 
