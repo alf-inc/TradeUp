@@ -27,10 +27,13 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [wsReady, setWsReady] = useState(false);
 
-  const [tradeState, setTradeState] = useState<'idle' | 'waiting' | 'confirmed'>(() => {
+  const [tradeState, setTradeState] = useState<'idle' | 'waiting' | 'confirmed' | 'rejected'>(() => {
     if (isFullyConfirmed) return 'confirmed';
     if (initialStatus === 'accepted') return 'waiting';
+    if (initialStatus === 'rejected') return 'rejected';
     return 'idle';
   });
   const [isConfirming, setIsConfirming] = useState(false);
@@ -49,9 +52,15 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
     let isMounted = true;
 
     const initializeChat = async () => {
+      setFetchError(null);
+      setLoading(true);
+      setMessages([]);
       try {
         const res = await fetch(`http://localhost:8000/chats/${chatId}/messages?userId=${currentUserId}`);
-        if (res.ok && isMounted) {
+        if (!res.ok) {
+          throw new Error(`Failed to load messages (${res.status})`);
+        }
+        if (isMounted) {
           const data = await res.json();
           setMessages(data.messages || []);
         }
@@ -59,22 +68,40 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
         const wsUrl = `ws://localhost:8000/chats/ws/${chatId}?userId=${currentUserId}`;
         const ws = new WebSocket(wsUrl);
 
-        ws.onmessage = (event) => {
-          const incomingMessage = JSON.parse(event.data);
-          
-          if (incomingMessage.error) {
-            console.error('WebSocket Error:', incomingMessage.error);
-            return;
-          }
+        ws.onopen = () => {
+          if (isMounted) setWsReady(true);
+        };
 
+        ws.onclose = () => {
+          if (isMounted) setWsReady(false);
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const incomingMessage = JSON.parse(event.data);
+            if (incomingMessage.error) {
+              console.error('WebSocket Error:', incomingMessage.error);
+              return;
+            }
+            if (isMounted) {
+              setMessages((prev) => [...prev, incomingMessage]);
+            }
+          } catch {
+            console.error('Failed to parse WebSocket message');
+          }
+        };
+
+        ws.onerror = () => {
           if (isMounted) {
-            setMessages((prev) => [...prev, incomingMessage]);
+            console.error('WebSocket connection error');
           }
         };
 
         wsRef.current = ws;
       } catch (error) {
-        console.error('Failed to initialize chat:', error);
+        if (isMounted) {
+          setFetchError(error instanceof Error ? error.message : 'Could not load messages. Please try again.');
+        }
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -93,6 +120,7 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim() || !wsRef.current || !currentUserId) return;
+    if (wsRef.current.readyState !== WebSocket.OPEN) return;
 
     const payload = {
       senderId: currentUserId,
@@ -163,6 +191,8 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
                 ? 'bg-green-100 text-green-700 cursor-default'
                 : tradeState === 'waiting'
                 ? 'bg-yellow-100 text-yellow-700 cursor-default'
+                : tradeState === 'rejected'
+                ? 'bg-red-100 text-red-700 cursor-default'
                 : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
             }`}
           >
@@ -175,6 +205,8 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
               </>
             ) : tradeState === 'waiting' ? (
               <span>Waiting for {matchedWith.userName}...</span>
+            ) : tradeState === 'rejected' ? (
+              <span>Trade Declined</span>
             ) : (
               <span>Confirm Trade</span>
             )}
@@ -194,6 +226,32 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {loading ? (
           <div className="flex h-full items-center justify-center text-gray-500">Loading chat...</div>
+        ) : fetchError ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 text-center px-4">
+            <p className="text-red-500 text-sm">{fetchError}</p>
+            <button
+              onClick={() => {
+                setFetchError(null);
+                setLoading(true);
+                const run = async () => {
+                  try {
+                    const res = await fetch(`http://localhost:8000/chats/${chatId}/messages?userId=${currentUserId}`);
+                    if (!res.ok) throw new Error(`Failed to load messages (${res.status})`);
+                    const data = await res.json();
+                    setMessages(data.messages || []);
+                  } catch (err) {
+                    setFetchError(err instanceof Error ? err.message : 'Could not load messages. Please try again.');
+                  } finally {
+                    setLoading(false);
+                  }
+                };
+                run();
+              }}
+              className="text-sm text-purple-600 underline hover:text-purple-800"
+            >
+              Retry
+            </button>
+          </div>
         ) : messages.length === 0 ? (
           <div className="flex h-full items-center justify-center text-gray-500">No messages yet. Say hi!</div>
         ) : (
@@ -232,7 +290,7 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
           />
           <button
             type="submit"
-            disabled={!inputText.trim()}
+            disabled={!inputText.trim() || !wsReady}
             className="bg-purple-600 text-white p-2 rounded-full hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center w-10 h-10 shrink-0"
           >
             <Send className="w-5 h-5 ml-1" />
