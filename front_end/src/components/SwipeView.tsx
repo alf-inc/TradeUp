@@ -318,9 +318,9 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
         className="h-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
-        {orderedItems.map((item) => (
+        {orderedItems.map((item, idx) => (
           <div
-            key={item.id}
+            key={`${item.id}-${idx}`}
             className="h-full snap-start snap-always relative flex items-center justify-center"
           >
             {/* Item Card */}
@@ -417,7 +417,7 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
                         return { ...prev, [item.id]: nextIndex };
                       });
                     }}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/30 backdrop-blur-md text-white flex items-center justify-center shadow-lg z-10 transition-all hover:bg-black/80 hover:backdrop-blur-0 hover:scale-110"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 h-11 w-11 rounded-full bg-black/30 backdrop-blur-md text-white flex items-center justify-center shadow-lg z-10 transition-all hover:bg-black/80 hover:backdrop-blur-0 hover:scale-110"
                     aria-label="Previous image"
                   >
                     <ChevronLeft className="h-6 w-6" />
@@ -433,7 +433,7 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
                         return { ...prev, [item.id]: nextIndex };
                       });
                     }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/30 backdrop-blur-md text-white flex items-center justify-center shadow-lg z-10 transition-all hover:bg-black/80 hover:backdrop-blur-0 hover:scale-110"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 h-11 w-11 rounded-full bg-black/30 backdrop-blur-md text-white flex items-center justify-center shadow-lg z-10 transition-all hover:bg-black/80 hover:backdrop-blur-0 hover:scale-110"
                     aria-label="Next image"
                   >
                     <ChevronRight className="h-6 w-6" />
@@ -445,7 +445,7 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40 pointer-events-none" />
 
               {/* Top Info */}
-              <div className="absolute top-4 left-4 right-20">
+              <div className="absolute top-4 left-4 right-14">
                 <div className="flex items-center gap-3 mb-2">
                   <img
                     src={item.userAvatar}

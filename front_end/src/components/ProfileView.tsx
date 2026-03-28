@@ -338,7 +338,7 @@ export function ProfileView({ setActiveView }: ProfileViewProps) {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="p-6">
+      <div className="p-4">
         {/* Profile Header */}
         <div className="bg-white rounded-2xl p-6 shadow-lg mb-6">
           {loadingProfile ? (
@@ -370,9 +370,9 @@ export function ProfileView({ setActiveView }: ProfileViewProps) {
                       setSaveError("");
                       setIsEditingProfile(true);
                     }}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                    className="p-2.5 hover:bg-gray-100 rounded-full transition-colors"
                   >
-                    <Edit2 className="w-4 h-4 text-gray-600" />
+                    <Edit2 className="w-5 h-5 text-gray-600" />
                   </button>
                 </div>
                 <p className="text-gray-600 italic">
@@ -613,7 +613,7 @@ export function ProfileView({ setActiveView }: ProfileViewProps) {
                 onClick={() => {
                   setIsAddModalOpen(true);
                 }}
-                className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-full hover:shadow-lg transition-shadow"
+                className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2.5 rounded-full hover:shadow-lg transition-shadow"
               >
                 <Plus className="w-4 h-4" />
                 <span>Add Item</span>
@@ -657,7 +657,7 @@ export function ProfileView({ setActiveView }: ProfileViewProps) {
                         <img
                           src={thumb}
                           alt={item.title}
-                          className="w-32 h-32 object-cover"
+                          className="w-24 h-24 object-cover"
                           onError={(e) => {
                             (e.currentTarget as HTMLImageElement).src = currentUser.avatar;
                           }}
@@ -672,9 +672,9 @@ export function ProfileView({ setActiveView }: ProfileViewProps) {
                             </div>
                             <button
                               onClick={() => handleDeleteItem(item.id)}
-                              className="p-2 hover:bg-red-50 rounded-full transition-colors group"
+                              className="p-2.5 hover:bg-red-50 rounded-full transition-colors group"
                             >
-                              <Trash2 className="w-4 h-4 text-gray-400 group-hover:text-red-500" />
+                              <Trash2 className="w-5 h-5 text-gray-400 group-hover:text-red-500" />
                             </button>
                           </div>
                           <div className="flex items-center gap-2">
@@ -706,10 +706,10 @@ export function ProfileView({ setActiveView }: ProfileViewProps) {
               <button
                 onClick={() => setTradesFetchKey((k) => k + 1)}
                 disabled={loadingTrades}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50"
+                className="p-2.5 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50"
                 title="Refresh trade history"
               >
-                <RefreshCw className={`w-4 h-4 text-gray-500 ${loadingTrades ? "animate-spin" : ""}`} />
+                <RefreshCw className={`w-5 h-5 text-gray-500 ${loadingTrades ? "animate-spin" : ""}`} />
               </button>
             </div>
 

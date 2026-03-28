@@ -75,7 +75,7 @@ export default function App() {
           <div className="flex justify-around items-center">
             <button
               onClick={() => setActiveView('Listings')}
-              className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${
+              className={`flex flex-col items-center gap-1 p-3 rounded-lg transition-colors ${
                 activeView === 'Listings'
                   ? 'text-purple-600 bg-purple-50'
                   : 'text-gray-500 hover:text-gray-700'
@@ -86,7 +86,7 @@ export default function App() {
             </button>
             <button
               onClick={() => setActiveView('matches')}
-              className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${
+              className={`flex flex-col items-center gap-1 p-3 rounded-lg transition-colors ${
                 activeView === 'matches'
                   ? 'text-purple-600 bg-purple-50'
                   : 'text-gray-500 hover:text-gray-700'
@@ -97,7 +97,7 @@ export default function App() {
             </button>
             <button
               onClick={() => setActiveView('profile')}
-              className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${
+              className={`flex flex-col items-center gap-1 p-3 rounded-lg transition-colors ${
                 activeView === 'profile'
                   ? 'text-purple-600 bg-purple-50'
                   : 'text-gray-500 hover:text-gray-700'
