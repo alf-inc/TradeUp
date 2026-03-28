@@ -178,9 +178,12 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
       <div className="bg-white border-b px-3 py-3 flex items-center justify-between gap-2 shadow-sm">
         <div className="flex items-center gap-3 min-w-0">
           <img
-            src={matchedWith.userAvatar || 'https://via.placeholder.com/40'}
+            src={matchedWith.userAvatar || `https://ui-avatars.com/api/?background=e9d5ff&color=7c3aed&name=${encodeURIComponent(matchedWith.userName || '?')}`}
             alt={matchedWith.userName}
             className="w-10 h-10 rounded-full object-cover border border-gray-200 shrink-0"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = `https://ui-avatars.com/api/?background=e9d5ff&color=7c3aed&name=${encodeURIComponent(matchedWith.userName || '?')}`;
+            }}
           />
           <h2 className="text-base font-bold text-gray-800 truncate">{matchedWith.userName}</h2>
         </div>

@@ -144,7 +144,7 @@ export function ProfileView({ setActiveView }: ProfileViewProps) {
       setHistoryChatView({
         chatId: data.chatId,
         partnerName: trade.partnerName || "Trade Partner",
-        partnerAvatar: trade.partnerAvatar || "",
+        partnerAvatar: trade.partnerAvatar || "https://ui-avatars.com/api/?background=e9d5ff&color=7c3aed&name=" + encodeURIComponent(trade.partnerName || "?"),
       });
     } catch (error) {
       console.error("Error opening trade chat:", error);
