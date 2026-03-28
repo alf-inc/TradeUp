@@ -12,18 +12,19 @@ interface Message {
 
 interface ChatWindowProps {
   chatId: string;
-  notificationId: string;
+  notificationId?: string;
   matchedWith: {
     userName: string;
     userAvatar?: string;
   };
-  initialStatus?: 'accepted' | 'rejected'; 
+  initialStatus?: 'accepted' | 'rejected';
   isFullyConfirmed?: boolean;
+  readOnly?: boolean;
   onClose: () => void;
 }
 
 export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
-  isFullyConfirmed, onClose }: ChatWindowProps) {
+  isFullyConfirmed, readOnly, onClose }: ChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -65,39 +66,41 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
           setMessages(data.messages || []);
         }
 
-        const wsUrl = `ws://localhost:8000/chats/ws/${chatId}?userId=${currentUserId}`;
-        const ws = new WebSocket(wsUrl);
+        if (!readOnly) {
+          const wsUrl = `ws://localhost:8000/chats/ws/${chatId}?userId=${currentUserId}`;
+          const ws = new WebSocket(wsUrl);
 
-        ws.onopen = () => {
-          if (isMounted) setWsReady(true);
-        };
+          ws.onopen = () => {
+            if (isMounted) setWsReady(true);
+          };
 
-        ws.onclose = () => {
-          if (isMounted) setWsReady(false);
-        };
+          ws.onclose = () => {
+            if (isMounted) setWsReady(false);
+          };
 
-        ws.onmessage = (event) => {
-          try {
-            const incomingMessage = JSON.parse(event.data);
-            if (incomingMessage.error) {
-              console.error('WebSocket Error:', incomingMessage.error);
-              return;
+          ws.onmessage = (event) => {
+            try {
+              const incomingMessage = JSON.parse(event.data);
+              if (incomingMessage.error) {
+                console.error('WebSocket Error:', incomingMessage.error);
+                return;
+              }
+              if (isMounted) {
+                setMessages((prev) => [...prev, incomingMessage]);
+              }
+            } catch {
+              console.error('Failed to parse WebSocket message');
             }
+          };
+
+          ws.onerror = () => {
             if (isMounted) {
-              setMessages((prev) => [...prev, incomingMessage]);
+              console.error('WebSocket connection error');
             }
-          } catch {
-            console.error('Failed to parse WebSocket message');
-          }
-        };
+          };
 
-        ws.onerror = () => {
-          if (isMounted) {
-            console.error('WebSocket connection error');
-          }
-        };
-
-        wsRef.current = ws;
+          wsRef.current = ws;
+        }
       } catch (error) {
         if (isMounted) {
           setFetchError(error instanceof Error ? error.message : 'Could not load messages. Please try again.');
@@ -132,6 +135,7 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
   };
 
   const handleConfirmTrade = async () => {
+    if (!notificationId) return;
     setIsConfirming(true);
     try {
       // 1. Update YOUR notification to 'accepted' in Firestore
@@ -183,36 +187,43 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
         
         {/* Header Action Buttons */}
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleConfirmTrade}
-            disabled={tradeState !== 'idle' || isConfirming}
-            className={`flex items-center gap-1 px-3 py-2 rounded-full text-sm font-medium transition-colors min-h-[44px] ${
-              tradeState === 'confirmed'
-                ? 'bg-green-100 text-green-700 cursor-default'
-                : tradeState === 'waiting'
-                ? 'bg-yellow-100 text-yellow-700 cursor-default'
-                : tradeState === 'rejected'
-                ? 'bg-red-100 text-red-700 cursor-default'
-                : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-            }`}
-          >
-            {isConfirming ? (
-              <span>Processing...</span>
-            ) : tradeState === 'confirmed' ? (
-              <>
-                <Check className="w-4 h-4" />
-                <span>Confirmed!</span>
-              </>
-            ) : tradeState === 'waiting' ? (
-              <span>Waiting for {matchedWith.userName}...</span>
-            ) : tradeState === 'rejected' ? (
-              <span>Trade Declined</span>
-            ) : (
-              <span>Confirm Trade</span>
-            )}
-          </button>
+          {readOnly ? (
+            <span className="flex items-center gap-1 px-3 py-2 rounded-full text-sm font-medium bg-green-100 text-green-700">
+              <Check className="w-4 h-4" />
+              <span>Trade Completed</span>
+            </span>
+          ) : (
+            <button
+              onClick={handleConfirmTrade}
+              disabled={tradeState !== 'idle' || isConfirming}
+              className={`flex items-center gap-1 px-3 py-2 rounded-full text-sm font-medium transition-colors min-h-[44px] ${
+                tradeState === 'confirmed'
+                  ? 'bg-green-100 text-green-700 cursor-default'
+                  : tradeState === 'waiting'
+                  ? 'bg-yellow-100 text-yellow-700 cursor-default'
+                  : tradeState === 'rejected'
+                  ? 'bg-red-100 text-red-700 cursor-default'
+                  : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+              }`}
+            >
+              {isConfirming ? (
+                <span>Processing...</span>
+              ) : tradeState === 'confirmed' ? (
+                <>
+                  <Check className="w-4 h-4" />
+                  <span>Confirmed!</span>
+                </>
+              ) : tradeState === 'waiting' ? (
+                <span>Waiting for {matchedWith.userName}...</span>
+              ) : tradeState === 'rejected' ? (
+                <span>Trade Declined</span>
+              ) : (
+                <span>Confirm Trade</span>
+              )}
+            </button>
+          )}
 
-          <button 
+          <button
             onClick={onClose}
             className="p-2.5 hover:bg-gray-100 rounded-full transition-colors"
             aria-label="Close Chat"
@@ -253,7 +264,9 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
             </button>
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-gray-500">No messages yet. Say hi!</div>
+          <div className="flex h-full items-center justify-center text-gray-500">
+            {readOnly ? 'No messages were exchanged.' : 'No messages yet. Say hi!'}
+          </div>
         ) : (
           messages.map((msg, index) => {
             const isMe = msg.senderId === currentUserId;
@@ -279,24 +292,30 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
       </div>
 
       {/* Input Area */}
-      <div className="bg-white border-t p-4 pb-6">
-        <form onSubmit={handleSendMessage} className="flex gap-2">
-          <input
-            type="text"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            placeholder="Type a message..."
-            className="flex-1 bg-gray-100 border-transparent focus:bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-200 rounded-full px-4 py-2.5 outline-none transition-all"
-          />
-          <button
-            type="submit"
-            disabled={!inputText.trim() || !wsReady}
-            className="bg-purple-600 text-white p-2 rounded-full hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center w-11 h-11 shrink-0"
-          >
-            <Send className="w-5 h-5 ml-1" />
-          </button>
-        </form>
-      </div>
+      {readOnly ? (
+        <div className="bg-gray-50 border-t px-4 py-3 text-center text-sm text-gray-400">
+          This trade has been completed. Chat is read-only.
+        </div>
+      ) : (
+        <div className="bg-white border-t p-4 pb-6">
+          <form onSubmit={handleSendMessage} className="flex gap-2">
+            <input
+              type="text"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              placeholder="Type a message..."
+              className="flex-1 bg-gray-100 border-transparent focus:bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-200 rounded-full px-4 py-2.5 outline-none transition-all"
+            />
+            <button
+              type="submit"
+              disabled={!inputText.trim() || !wsReady}
+              className="bg-purple-600 text-white p-2 rounded-full hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center w-11 h-11 shrink-0"
+            >
+              <Send className="w-5 h-5 ml-1" />
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

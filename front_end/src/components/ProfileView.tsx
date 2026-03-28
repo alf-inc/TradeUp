@@ -3,6 +3,7 @@ import { currentUser } from "../data/mockData";
 import { Plus, Edit2, Trash2, X, Check, History, RefreshCw } from "lucide-react";
 import { AddItemModal } from "./AddItemModal";
 import { TradeHistoryCard } from "./TradeHistoryCard";
+import { ChatWindow } from "./ChatWindow";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Button } from "./ui/button";
@@ -113,6 +114,43 @@ export function ProfileView({ setActiveView }: ProfileViewProps) {
   const [loadingTrades, setLoadingTrades] = useState(false);
   const [tradesError, setTradesError] = useState("");
   const [tradesFetchKey, setTradesFetchKey] = useState(0);
+
+  // Chat history viewer for completed trades
+  const [historyChatView, setHistoryChatView] = useState<{
+    chatId: string;
+    partnerName: string;
+    partnerAvatar: string;
+  } | null>(null);
+
+  const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+
+  const handleViewTradeChat = async (trade: CompletedTrade) => {
+    if (!uid) return;
+    try {
+      const params = new URLSearchParams({
+        userId: uid,
+        user1Id: trade.user1Id,
+        user2Id: trade.user2Id,
+        item1Id: trade.item1Id,
+        item2Id: trade.item2Id,
+      });
+      const res = await fetch(`${API_BASE}/chats/by-trade?${params}`);
+      if (res.status === 404) {
+        alert("No chat history found for this trade.");
+        return;
+      }
+      if (!res.ok) throw new Error("Failed to look up chat");
+      const data = await res.json();
+      setHistoryChatView({
+        chatId: data.chatId,
+        partnerName: trade.partnerName || "Trade Partner",
+        partnerAvatar: trade.partnerAvatar || "",
+      });
+    } catch (error) {
+      console.error("Error opening trade chat:", error);
+      alert("Could not load chat history. Please try again.");
+    }
+  };
 
   // Load profile + items from Firestore when uid is available
   useEffect(() => {
@@ -737,7 +775,7 @@ export function ProfileView({ setActiveView }: ProfileViewProps) {
             ) : (
               <div className="grid gap-4">
                 {tradeHistory.map((trade) => (
-                  <TradeHistoryCard key={trade.id} trade={trade} />
+                  <TradeHistoryCard key={trade.id} trade={trade} onViewChat={handleViewTradeChat} />
                 ))}
               </div>
             )}
@@ -772,6 +810,19 @@ export function ProfileView({ setActiveView }: ProfileViewProps) {
               alert("Could not save item.");
             }
           }}
+        />
+      )}
+
+      {historyChatView && (
+        <ChatWindow
+          chatId={historyChatView.chatId}
+          matchedWith={{
+            userName: historyChatView.partnerName,
+            userAvatar: historyChatView.partnerAvatar,
+          }}
+          readOnly={true}
+          isFullyConfirmed={true}
+          onClose={() => setHistoryChatView(null)}
         />
       )}
     </div>
