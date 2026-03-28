@@ -104,6 +104,7 @@ export type GetFeedOptions = {
   category?: string;                   // optional filter
   condition?: string;                  // optional filter
   excludeUserId?: string;              // optional (skip your own items client-side)
+  excludeItemIds?: string[];           // optional (skip traded items client-side)
   startAfterDoc?: QueryDocumentSnapshot<DocumentData>; // pagination
 };
 
@@ -113,6 +114,7 @@ export async function getFeedItems(options: GetFeedOptions = {}) {
     category,
     condition,
     excludeUserId,
+    excludeItemIds,
     startAfterDoc,
   } = options;
 
@@ -127,7 +129,8 @@ export async function getFeedItems(options: GetFeedOptions = {}) {
 
   const items: FeedItem[] = snap.docs
     .map((d) => ({ id: d.id, ...(d.data() as Omit<FeedItem, "id">) }))
-    .filter((it) => (excludeUserId ? it.userId !== excludeUserId : true));
+    .filter((it) => (excludeUserId ? it.userId !== excludeUserId : true))
+    .filter((it) => !(excludeItemIds?.includes(it.id)));
 
   const lastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
 

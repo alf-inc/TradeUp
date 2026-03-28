@@ -1,4 +1,5 @@
 from fastapi import HTTPException
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 
 def check_match_only(db, liker_user_id: str, liked_item_id: str):
@@ -46,6 +47,30 @@ def check_match_only(db, liker_user_id: str, liked_item_id: str):
     mutual_item_ids = [
         item_id for item_id in owner_likes if item_id in liker_item_set
     ]
+
+    # 4b) Exclude items already in completed trades
+    traded_item_ids = set()
+
+    q1 = db.collection("completed_trades").where(filter=FieldFilter("user1_id", "==", liker_user_id)).stream()
+    q2 = db.collection("completed_trades").where(filter=FieldFilter("user2_id", "==", liker_user_id)).stream()
+    for snap in list(q1) + list(q2):
+        d = snap.to_dict()
+        traded_item_ids.add(d.get("item1_id"))
+        traded_item_ids.add(d.get("item2_id"))
+
+    q3 = db.collection("completed_trades").where(filter=FieldFilter("user1_id", "==", owner_user_id)).stream()
+    q4 = db.collection("completed_trades").where(filter=FieldFilter("user2_id", "==", owner_user_id)).stream()
+    for snap in list(q3) + list(q4):
+        d = snap.to_dict()
+        traded_item_ids.add(d.get("item1_id"))
+        traded_item_ids.add(d.get("item2_id"))
+
+    # Skip if the liked item itself has been traded
+    if liked_item_id in traded_item_ids:
+        return {"matchFound": False, "matches": []}
+
+    # Remove traded items from mutual matches
+    mutual_item_ids = [mid for mid in mutual_item_ids if mid not in traded_item_ids]
 
     # 5) Build response with enriched item details
     matches = []

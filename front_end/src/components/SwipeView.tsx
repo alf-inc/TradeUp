@@ -14,6 +14,8 @@ import { MatchPopupModal } from './MatchPopupModal';
 import { useCreateOffer } from '../utils/Usecreateoffer';
 import { toggleSavedListing, getSavedListings } from '../api/savedListings';
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
+
 type SwipeViewProps = {
   userId: string | null;
   likedItems: string[];
@@ -83,8 +85,21 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
       try {
         setLoadingFeed(true);
 
+        // Fetch traded item IDs to exclude from feed
+        const tradedItemIds: string[] = [];
+        try {
+          const res = await fetch(`${API_BASE}/trades/history?userId=${uid}`);
+          if (res.ok) {
+            const data = await res.json();
+            for (const t of data.trades ?? []) {
+              tradedItemIds.push(t.item1_id, t.item2_id);
+            }
+          }
+        } catch { /* non-critical */ }
+
         const { items: feedItems } = await getFeedItems({
           excludeUserId: uid ?? undefined,
+          excludeItemIds: tradedItemIds,
           limitCount: 50,
         });
 
@@ -177,7 +192,7 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
         await addLikedItem(uid, itemId);
         try {
           const res = await fetch(
-            `http://127.0.0.1:8000/matches/check-and-notify?likerUserId=${uid}&likedItemId=${itemId}`,
+            `${API_BASE}/matches/check-and-notify?likerUserId=${uid}&likedItemId=${itemId}`,
             { method: "POST" }
           );
           const data = await res.json();

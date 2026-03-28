@@ -1,7 +1,7 @@
 from typing import Optional, List
 from fastapi import HTTPException
 from google.cloud import firestore
-from app.services.notification_service import create_offer_notification
+from app.services.notification_service import create_offer_notification, create_mutual_match_notification
 
 
 def create_offer(
@@ -48,7 +48,24 @@ def create_offer(
     _, offer_ref = db.collection("offers").add(offer_data)
     offer_id = offer_ref.id
 
-    # Send notification to the receiver
+    # Create MUTUAL_MATCH notifications for the specific items the user chose
+    for item_id in offered_item_ids:
+        create_mutual_match_notification(
+            db,
+            receiver_user_id=from_user_id,
+            other_user_id=to_user_id,
+            item_id=requested_item_id,
+            mutual_item_id=item_id,
+        )
+        create_mutual_match_notification(
+            db,
+            receiver_user_id=to_user_id,
+            other_user_id=from_user_id,
+            item_id=item_id,
+            mutual_item_id=requested_item_id,
+        )
+
+    # Send offer notification to the receiver
     create_offer_notification(
         db=db,
         receiver_user_id=to_user_id,
