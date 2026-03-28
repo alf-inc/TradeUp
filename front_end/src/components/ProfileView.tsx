@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   auth,
+  db,
   getMyProfile,
   saveMyProfile,
   saveNewItem,
@@ -20,6 +21,7 @@ import {
 } from "../firebase/firebase";
 import type { CompletedTrade } from "../types";
 import { fetchTradeHistory } from "../api/trades";
+import { collection, query, where, getDocs, doc, getDoc } from "firebase/firestore";
 
 // Helper to get current browser/device location
 function getBrowserLocation(): Promise<Location> {
@@ -114,6 +116,8 @@ export function ProfileView({ setActiveView }: ProfileViewProps) {
   const [tradesError, setTradesError] = useState("");
   const [tradesFetchKey, setTradesFetchKey] = useState(0);
 
+  const [matchCount, setMatchCount] = useState(0);
+
   // Load profile + items from Firestore when uid is available
   useEffect(() => {
     if (!uid) return;
@@ -201,6 +205,45 @@ export function ProfileView({ setActiveView }: ProfileViewProps) {
       }
     })();
   }, [uid, tradesFetchKey]);
+
+  // Fetch match count: count matches visible on the Matches tab
+  // Mirrors MatchesView logic — all MUTUAL_MATCH notifications where both items exist
+  useEffect(() => {
+    if (!uid) return;
+
+    (async () => {
+      try {
+        const q = query(
+          collection(db, "notifications"),
+          where("userId", "==", uid),
+          where("type", "==", "MUTUAL_MATCH")
+        );
+        const snapshot = await getDocs(q);
+
+        // Filter out matches where either item has been deleted (same as MatchesView)
+        let count = 0;
+        await Promise.all(
+          snapshot.docs.map(async (d) => {
+            const payload = d.data().payload || {};
+            const itemId = payload.itemId;
+            const mutualItemId = payload.mutualItemId;
+            if (!itemId || !mutualItemId) return;
+
+            const [itemSnap, mutualSnap] = await Promise.all([
+              getDoc(doc(db, "items", itemId)),
+              getDoc(doc(db, "items", mutualItemId)),
+            ]);
+            if (itemSnap.exists() && mutualSnap.exists()) {
+              count++;
+            }
+          })
+        );
+        setMatchCount(count);
+      } catch (e) {
+        console.error("Failed to load match count:", e);
+      }
+    })();
+  }, [uid]);
 
   const handleDeleteItem = async (itemId: string) => {
     if (!confirm("Are you sure you want to delete this item?")) return;
@@ -565,11 +608,11 @@ export function ProfileView({ setActiveView }: ProfileViewProps) {
                 <p className="text-sm text-gray-500">Items</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-purple-600">12</p>
+                <p className="text-2xl font-bold text-purple-600">{matchCount}</p>
                 <p className="text-sm text-gray-500">Matches</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-purple-600">{profile.completedTradeCount}</p>
+                <p className="text-2xl font-bold text-purple-600">{tradeHistory.length}</p>
                 <p className="text-sm text-gray-500">Trades</p>
               </div>
             </div>
