@@ -9,6 +9,7 @@ from app.services.chat_service import (
     get_chat_messages,
     get_user_chats,
     verify_user_in_chat,
+    find_chat_by_trade,
 )
 from app.services.chat_manager import manager
 
@@ -36,6 +37,14 @@ def create_or_get_chat(payload: ChatInitiateRequest):
         mutual_item_id=payload.mutualItemId,
         notification_id=payload.notificationId,
     )
+
+
+@router.get("/by-trade")
+def get_chat_for_trade(userId: str, user1Id: str, user2Id: str, item1Id: str, item2Id: str):
+    result = find_chat_by_trade(db, userId, user1Id, user2Id, item1Id, item2Id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="No chat found for this trade")
+    return result
 
 
 @router.get("")

@@ -48,8 +48,8 @@ export async function fetchTradeHistory(userId: string): Promise<CompletedTrade[
         givenItemImage: myItem?.imageUrls?.[0],
         receivedItemTitle: theirItem?.title,
         receivedItemImage: theirItem?.imageUrls?.[0],
-        partnerName: partner?.name,
-        partnerAvatar: partner?.photoURL,
+        partnerName: partner?.name || theirItem?.userName,
+        partnerAvatar: partner?.photoURL || theirItem?.userAvatar,
         myRating: myRating ?? null,
         partnerRating: partnerRating ?? null,
       };

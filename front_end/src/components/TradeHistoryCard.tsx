@@ -1,8 +1,9 @@
-import { ArrowDownUp, Star } from "lucide-react";
+import { ArrowDownUp, MessageCircle, Star } from "lucide-react";
 import type { CompletedTrade } from "../types";
 
 interface TradeHistoryCardProps {
   trade: CompletedTrade;
+  onViewChat?: (trade: CompletedTrade) => void;
 }
 
 function RatingBadge({ label, rating }: { label: string; rating: number | null | undefined }) {
@@ -22,7 +23,7 @@ function RatingBadge({ label, rating }: { label: string; rating: number | null |
   );
 }
 
-export function TradeHistoryCard({ trade }: TradeHistoryCardProps) {
+export function TradeHistoryCard({ trade, onViewChat }: TradeHistoryCardProps) {
   const fallbackImg = "https://ui-avatars.com/api/?background=e9d5ff&color=7c3aed&name=?";
 
   const formattedDate = trade.completedAt
@@ -111,6 +112,19 @@ export function TradeHistoryCard({ trade }: TradeHistoryCardProps) {
         <RatingBadge label="Your rating" rating={trade.myRating} />
         <RatingBadge label="Their rating" rating={trade.partnerRating} />
       </div>
+
+      {/* View Chat button */}
+      {onViewChat && (
+        <div className="px-4 pb-4">
+          <button
+            onClick={() => onViewChat(trade)}
+            className="w-full py-2.5 bg-purple-100 text-purple-700 rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-purple-200 transition-colors"
+          >
+            <MessageCircle className="w-4 h-4" />
+            <span>View Chat</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
