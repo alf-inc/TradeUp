@@ -65,7 +65,7 @@ export function NotificationsBell({ userId }: { userId: string | null }) {
     <div className="relative" ref={panelRef}>
       <button
         onClick={onOpen}
-        className="relative p-2 rounded-lg hover:bg-gray-100"
+        className="relative p-2.5 rounded-lg hover:bg-gray-100"
         aria-label="Notifications"
       >
         <Bell className="w-6 h-6 text-gray-700" />
@@ -77,7 +77,7 @@ export function NotificationsBell({ userId }: { userId: string | null }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-50">
+        <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-80 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-50">
           <div className="px-4 py-3 border-b flex items-center justify-between">
             <div className="font-semibold">Notifications</div>
             {loading && <div className="text-xs text-gray-500">Loading...</div>}

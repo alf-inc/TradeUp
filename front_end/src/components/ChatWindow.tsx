@@ -171,14 +171,14 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
   return (
     <div className="h-full flex flex-col bg-gray-50 absolute inset-0 z-50">
       {/* Header */}
-      <div className="bg-white border-b px-4 py-3 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-3">
+      <div className="bg-white border-b px-3 py-3 flex items-center justify-between gap-2 shadow-sm">
+        <div className="flex items-center gap-3 min-w-0">
           <img
             src={matchedWith.userAvatar || 'https://via.placeholder.com/40'}
             alt={matchedWith.userName}
-            className="w-10 h-10 rounded-full object-cover border border-gray-200"
+            className="w-10 h-10 rounded-full object-cover border border-gray-200 shrink-0"
           />
-          <h2 className="text-lg font-bold text-gray-800">{matchedWith.userName}</h2>
+          <h2 className="text-base font-bold text-gray-800 truncate">{matchedWith.userName}</h2>
         </div>
         
         {/* Header Action Buttons */}
@@ -186,7 +186,7 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
           <button
             onClick={handleConfirmTrade}
             disabled={tradeState !== 'idle' || isConfirming}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+            className={`flex items-center gap-1 px-3 py-2 rounded-full text-sm font-medium transition-colors min-h-[44px] ${
               tradeState === 'confirmed'
                 ? 'bg-green-100 text-green-700 cursor-default'
                 : tradeState === 'waiting'
@@ -214,7 +214,7 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
 
           <button 
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2.5 hover:bg-gray-100 rounded-full transition-colors"
             aria-label="Close Chat"
           >
             <X className="w-6 h-6 text-gray-700" />
@@ -286,12 +286,12 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             placeholder="Type a message..."
-            className="flex-1 bg-gray-100 border-transparent focus:bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-200 rounded-full px-4 py-2 outline-none transition-all"
+            className="flex-1 bg-gray-100 border-transparent focus:bg-white focus:border-purple-500 focus:ring-2 focus:ring-purple-200 rounded-full px-4 py-2.5 outline-none transition-all"
           />
           <button
             type="submit"
             disabled={!inputText.trim() || !wsReady}
-            className="bg-purple-600 text-white p-2 rounded-full hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center w-10 h-10 shrink-0"
+            className="bg-purple-600 text-white p-2 rounded-full hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center w-11 h-11 shrink-0"
           >
             <Send className="w-5 h-5 ml-1" />
           </button>

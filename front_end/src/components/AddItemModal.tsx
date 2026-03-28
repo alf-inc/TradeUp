@@ -184,7 +184,7 @@ export function AddItemModal({
           <h2 className="text-2xl font-bold">Add New Item</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2.5 hover:bg-gray-100 rounded-full transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -199,7 +199,7 @@ export function AddItemModal({
               required
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
               placeholder="e.g., Vintage Camera"
             />
           </div>
@@ -210,7 +210,7 @@ export function AddItemModal({
               required
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none h-24 resize-none"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none h-24 resize-none"
               placeholder="Describe your item..."
             />
           </div>
@@ -221,7 +221,7 @@ export function AddItemModal({
               type="url"
               value={formData.imageUrl}
               onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
               placeholder="https://example.com/image.jpg"
             />
             <p className="text-xs text-gray-500 mt-1">Leave blank for default image</p>
@@ -232,7 +232,7 @@ export function AddItemModal({
             <select
               value={formData.category}
               onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
             >
               {categories.map((cat) => (
                 <option key={cat} value={cat}>
@@ -255,7 +255,7 @@ export function AddItemModal({
                       condition: cond.value as 'new' | 'like-new' | 'good' | 'fair',
                     })
                   }
-                  className={`px-4 py-2 rounded-lg border-2 transition-colors ${
+                  className={`px-4 py-2.5 rounded-lg border-2 transition-colors ${
                     formData.condition === cond.value
                       ? 'border-purple-600 bg-purple-50 text-purple-700 font-medium'
                       : 'border-gray-200 hover:border-gray-300'
@@ -275,7 +275,7 @@ export function AddItemModal({
                 type="button"
                 onClick={handleUseProfileLocation}
                 disabled={resolvingLocation}
-                className="px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="px-4 py-2.5 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
                 Use Profile Location
               </button>
@@ -284,7 +284,7 @@ export function AddItemModal({
                 type="button"
                 onClick={handleUseCurrentLocation}
                 disabled={resolvingLocation}
-                className="px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="px-4 py-2.5 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
                 {resolvingLocation ? "Getting location..." : "Use Current Location"}
               </button>
@@ -299,14 +299,14 @@ export function AddItemModal({
                   type="text"
                   value={locationQuery}
                   onChange={(e) => setLocationQuery(e.target.value)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
+                  className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
                   placeholder="Toronto, ON"
                 />
                 <button
                   type="button"
                   onClick={handleResolveManualLocation}
                   disabled={resolvingLocation}
-                  className="px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  className="px-4 py-2.5 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >
                   Resolve
                 </button>

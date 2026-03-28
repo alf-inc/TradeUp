@@ -43,7 +43,7 @@ export function MatchPopupModal({ matches, onCreateOffer, onCancel }: MatchPopup
           </div>
           <button
             onClick={onCancel}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2.5 hover:bg-gray-100 rounded-full transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
