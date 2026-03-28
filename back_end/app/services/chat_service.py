@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from fastapi import HTTPException
 from firebase_admin import firestore
 
@@ -189,6 +189,31 @@ def get_chat_messages(db, chat_id: str, user_id: str) -> List[Dict[str, Any]]:
         })
 
     return messages
+
+
+def find_chat_by_trade(db, user_id: str, user1_id: str, user2_id: str, item1_id: str, item2_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Look up an existing chat for a completed trade using the same composite key logic.
+    Returns {"chatId": "..."} or None if no chat exists.
+    """
+    if user_id not in (user1_id, user2_id):
+        raise HTTPException(status_code=403, detail="User is not a participant in this trade")
+
+    participants_key = _build_participants_key(user1_id, user2_id)
+    item_pair_key = _build_item_pair_key(item1_id, item2_id)
+    composite_key = f"{participants_key}__{item_pair_key}"
+
+    docs = list(
+        db.collection("chats")
+        .where("compositeKey", "==", composite_key)
+        .limit(1)
+        .stream()
+    )
+
+    if not docs:
+        return None
+
+    return {"chatId": docs[0].id}
 
 
 def get_user_chats(db, user_id: str) -> List[Dict[str, Any]]:
