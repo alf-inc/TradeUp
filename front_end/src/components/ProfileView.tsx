@@ -257,11 +257,15 @@ export function ProfileView({ setActiveView }: ProfileViewProps) {
         );
         const snapshot = await getDocs(q);
 
-        // Filter out matches where either item has been deleted (same as MatchesView)
+        // Filter out confirmed trades and matches where either item has been deleted (same as MatchesView)
         let count = 0;
         await Promise.all(
           snapshot.docs.map(async (d) => {
-            const payload = d.data().payload || {};
+            const data = d.data();
+            // Skip completed/confirmed trades — mirrors MatchesView filter
+            if (data.confirmed === true) return;
+
+            const payload = data.payload || {};
             const itemId = payload.itemId;
             const mutualItemId = payload.mutualItemId;
             if (!itemId || !mutualItemId) return;
