@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { X, Send, Check, Clock, Ban } from 'lucide-react';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase/firebase';
 
 interface Message {
@@ -30,6 +30,7 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [wsReady, setWsReady] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   const [tradeState, setTradeState] = useState<'idle' | 'waiting' | 'confirmed' | 'rejected'>(() => {
     if (isFullyConfirmed) return 'confirmed';
@@ -51,21 +52,45 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
     if (!currentUserId || !chatId) return;
 
     let isMounted = true;
+    let unsubscribeSnapshot: (() => void) | undefined;
 
     const initializeChat = async () => {
       setFetchError(null);
       setLoading(true);
-      setMessages([]);
-      try {
-        const res = await fetch(`http://localhost:8000/chats/${chatId}/messages?userId=${currentUserId}`);
-        if (!res.ok) {
-          throw new Error(`Failed to load messages (${res.status})`);
-        }
-        if (isMounted) {
-          const data = await res.json();
-          setMessages(data.messages || []);
-        }
 
+      try {
+        // 1. Setup Firestore Real-time Listener (The Read Mechanism)
+        const messagesRef = collection(db, 'chats', chatId, 'messages');
+        const q = query(messagesRef, orderBy('timestamp', 'asc'));
+
+        unsubscribeSnapshot = onSnapshot(
+          q,
+          (snapshot) => {
+            if (!isMounted) return;
+            
+            const updatedMessages = snapshot.docs.map(doc => {
+              const data = doc.data();
+              return {
+                messageId: doc.id,
+                senderId: data.senderId,
+                message: data.message,
+                timestamp: data.timestamp,
+              } as Message;
+            });
+
+            setMessages(updatedMessages);
+            setLoading(false); // Data has arrived
+          },
+          (error) => {
+            console.error("Firestore onSnapshot error:", error);
+            if (isMounted) {
+              setFetchError("Failed to sync messages. Please check your connection.");
+              setLoading(false);
+            }
+          }
+        );
+
+        // 2. Setup WebSocket (The Write Mechanism)
         if (!readOnly) {
           const wsUrl = `ws://localhost:8000/chats/ws/${chatId}?userId=${currentUserId}`;
           const ws = new WebSocket(wsUrl);
@@ -81,12 +106,10 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
           ws.onmessage = (event) => {
             try {
               const incomingMessage = JSON.parse(event.data);
+              // We only listen for errors now. The actual message UI update 
+              // is handled automatically by the onSnapshot listener above.
               if (incomingMessage.error) {
                 console.error('WebSocket Error:', incomingMessage.error);
-                return;
-              }
-              if (isMounted) {
-                setMessages((prev) => [...prev, incomingMessage]);
               }
             } catch {
               console.error('Failed to parse WebSocket message');
@@ -103,22 +126,25 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
         }
       } catch (error) {
         if (isMounted) {
-          setFetchError(error instanceof Error ? error.message : 'Could not load messages. Please try again.');
+          setFetchError(error instanceof Error ? error.message : 'Could not initialize chat.');
+          setLoading(false);
         }
-      } finally {
-        if (isMounted) setLoading(false);
       }
     };
 
     initializeChat();
 
+    // Cleanup phase
     return () => {
       isMounted = false;
+      if (unsubscribeSnapshot) {
+        unsubscribeSnapshot(); // Critical: Detach the Firestore listener
+      }
       if (wsRef.current) {
         wsRef.current.close();
       }
     };
-  }, [chatId, currentUserId]);
+  }, [chatId, currentUserId, readOnly, retryCount]); // Added retryCount to dependencies
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -253,19 +279,8 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
               onClick={() => {
                 setFetchError(null);
                 setLoading(true);
-                const run = async () => {
-                  try {
-                    const res = await fetch(`http://localhost:8000/chats/${chatId}/messages?userId=${currentUserId}`);
-                    if (!res.ok) throw new Error(`Failed to load messages (${res.status})`);
-                    const data = await res.json();
-                    setMessages(data.messages || []);
-                  } catch (err) {
-                    setFetchError(err instanceof Error ? err.message : 'Could not load messages. Please try again.');
-                  } finally {
-                    setLoading(false);
-                  }
-                };
-                run();
+                // Incrementing this state forces the useEffect to re-run and re-attach the listener
+                setRetryCount(prev => prev + 1); 
               }}
               className="text-sm text-purple-600 underline hover:text-purple-800"
             >

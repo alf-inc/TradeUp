@@ -140,10 +140,25 @@ export function MatchesView() {
           notifications.map(async (notif): Promise<HydratedMatch | null> => {
             const { itemId, mutualItemId, otherUserId } = notif.payload as any;
 
-            const myItemSnap = await getDoc(doc(db, "items", mutualItemId));
-            const theirItemSnap = await getDoc(doc(db, "items", itemId));
+            // Fetch both items
+            const item1Snap = await getDoc(doc(db, "items", mutualItemId));
+            const item2Snap = await getDoc(doc(db, "items", itemId));
 
-            if (!myItemSnap.exists() || !theirItemSnap.exists()) return null;
+            if (!item1Snap.exists() || !item2Snap.exists()) return null;
+
+            const item1Data = item1Snap.data();
+            const item2Data = item2Snap.data();
+
+            // Determine which item belongs to the logged-in user.
+            const isItem1Mine = item1Data.userId === user.uid;
+
+            const myItem = isItem1Mine 
+              ? { ...item1Data, id: mutualItemId } 
+              : { ...item2Data, id: itemId };
+              
+            const theirItem = isItem1Mine 
+              ? { ...item2Data, id: itemId } 
+              : { ...item1Data, id: mutualItemId };
 
             const createdAtDate = notif.createdAt?.toDate ? notif.createdAt.toDate() : new Date();
 
@@ -151,8 +166,8 @@ export function MatchesView() {
               id: notif.id,
               otherUserId: otherUserId || '',
               timestamp: createdAtDate,
-              item: { ...myItemSnap.data(), id: mutualItemId },
-              matchedWith: { ...theirItemSnap.data(), id: itemId },
+              item: myItem,             // Always the current user's item
+              matchedWith: theirItem,   // Always the other user's item
               status: notif.status,
               confirmed: notif.confirmed,
             };
@@ -181,7 +196,6 @@ export function MatchesView() {
             }
           }
         } catch {
-          // Non-critical: chat previews won't show but matches still load
         }
 
         // Sort by most recent chat activity, then by match timestamp
