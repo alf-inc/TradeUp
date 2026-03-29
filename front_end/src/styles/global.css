@@ -199,6 +199,7 @@ html {
 .dark .bg-white\/90  { background-color: rgba(28, 28, 40, 0.92) !important; }
 .dark .bg-gray-50    { background-color: #161622 !important; }
 .dark .bg-gray-100   { background-color: #252535 !important; }
+.dark .bg-purple-50  { background-color: #2d1f4e !important; }
 
 /* Text */
 .dark .text-gray-900 { color: #f1f5f9 !important; }
@@ -209,10 +210,12 @@ html {
 .dark .text-gray-400 { color: #64748b !important; }
 
 /* Borders */
-.dark .border-b      { border-color: #2e2e42 !important; }
-.dark .border-t      { border-color: #2e2e42 !important; }
-.dark .border        { border-color: #2e2e42 !important; }
+.dark .border-b        { border-color: #2e2e42 !important; }
+.dark .border-t        { border-color: #2e2e42 !important; }
+.dark .border          { border-color: #2e2e42 !important; }
+.dark .border-gray-100 { border-color: #252535 !important; }
 .dark .border-gray-200 { border-color: #2e2e42 !important; }
+.dark .border-gray-300 { border-color: #3a3a52 !important; }
 
 /* Gradient backgrounds (login screen) */
 .dark .bg-gradient-to-br.from-blue-50 {
@@ -221,6 +224,8 @@ html {
 
 /* Hover states */
 .dark .hover\:bg-gray-100:hover { background-color: #252535 !important; }
+.dark .hover\:bg-gray-50:hover  { background-color: #1e1e2e !important; }
+.dark .hover\:border-gray-300:hover { border-color: #3a3a52 !important; }
 
 /* Inputs */
 .dark .focus\:bg-white:focus { background-color: #252535 !important; }
@@ -258,10 +263,10 @@ html {
 [data-cbm="protanopia"] .text-red-700   { color: #c2410c !important; }
 
 /* TRITANOPIA — blue-yellow deficiency. Yellow → Slate, Blue → Pink */
-[data-cbm="tritanopia"] .bg-yellow-50    { background-color: #f1f5f9 !important; }
-[data-cbm="tritanopia"] .bg-yellow-100   { background-color: #e2e8f0 !important; }
-[data-cbm="tritanopia"] .text-yellow-700 { color: #475569 !important; }
-[data-cbm="tritanopia"] .fill-yellow-400 { fill: #94a3b8 !important; }
-[data-cbm="tritanopia"] .text-yellow-400 { color: #94a3b8 !important; }
+[data-cbm="tritanopia"] .bg-yellow-50    { background-color: #fff7ed !important; }
+[data-cbm="tritanopia"] .bg-yellow-100   { background-color: #ffedd5 !important; }
+[data-cbm="tritanopia"] .text-yellow-700 { color: #c2410c !important; }
+[data-cbm="tritanopia"] .fill-yellow-400 { fill: #f97316 !important; }  /* orange — clearly visible for tritanopia */
+[data-cbm="tritanopia"] .text-yellow-400 { color: #f97316 !important; } /* orange — clearly visible for tritanopia */
 [data-cbm="tritanopia"] .bg-blue-100     { background-color: #fce7f3 !important; }
 [data-cbm="tritanopia"] .text-blue-700   { color: #be185d !important; }

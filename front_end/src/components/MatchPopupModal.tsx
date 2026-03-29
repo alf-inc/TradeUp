@@ -32,18 +32,18 @@ export function MatchPopupModal({ matches, onCreateOffer, onCancel }: MatchPopup
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-[#1c1c28] rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-[#2e2e42]">
           <div>
-            <h2 className="text-xl font-bold">It's a Match!</h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Select items to offer for <span className="font-medium text-gray-700">{requestedItem.itemBTitle}</span>
+            <h2 className="text-xl font-bold dark:text-gray-100">It's a Match!</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Select items to offer for <span className="font-medium text-gray-700 dark:text-gray-200">{requestedItem.itemBTitle}</span>
             </p>
           </div>
           <button
             onClick={onCancel}
-            className="p-2.5 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2.5 hover:bg-gray-100 dark:hover:bg-[#252535] rounded-full transition-colors dark:text-gray-300"
           >
             <X className="w-5 h-5" />
           </button>
@@ -51,7 +51,7 @@ export function MatchPopupModal({ matches, onCreateOffer, onCancel }: MatchPopup
 
         {/* Item List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          <p className="text-xs text-gray-400 uppercase tracking-wide font-medium px-1">
+          <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wide font-medium px-1">
             Your items they liked ({matches.length})
           </p>
 
@@ -65,8 +65,8 @@ export function MatchPopupModal({ matches, onCreateOffer, onCancel }: MatchPopup
                 onClick={() => toggleItem(match.itemA)}
                 className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${
                   isSelected
-                    ? 'border-purple-500 bg-purple-50'
-                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                    ? 'border-purple-500 bg-purple-50 dark:bg-[#2d1f4e]'
+                    : 'border-gray-200 dark:border-[#2e2e42] hover:border-gray-300 dark:hover:border-[#3a3a52] bg-white dark:bg-[#252535]'
                 }`}
               >
                 {/* Checkbox */}
@@ -74,7 +74,7 @@ export function MatchPopupModal({ matches, onCreateOffer, onCancel }: MatchPopup
                   className={`w-6 h-6 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
                     isSelected
                       ? 'bg-purple-600 border-purple-600'
-                      : 'border-gray-300'
+                      : 'border-gray-300 dark:border-[#3a3a52]'
                   }`}
                 >
                   {isSelected && <Check className="w-4 h-4 text-white" />}
@@ -88,15 +88,15 @@ export function MatchPopupModal({ matches, onCreateOffer, onCancel }: MatchPopup
                     className="w-14 h-14 rounded-lg object-cover flex-shrink-0"
                   />
                 ) : (
-                  <div className="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                  <div className="w-14 h-14 rounded-lg bg-gray-100 dark:bg-[#1c1c28] flex items-center justify-center flex-shrink-0">
                     <Package className="w-6 h-6 text-gray-400" />
                   </div>
                 )}
 
                 {/* Item Info */}
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900 truncate">{match.itemATitle}</p>
-                  <p className="text-sm text-gray-500">{match.itemACategory}</p>
+                  <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{match.itemATitle}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{match.itemACategory}</p>
                 </div>
               </button>
             );
@@ -104,8 +104,8 @@ export function MatchPopupModal({ matches, onCreateOffer, onCancel }: MatchPopup
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-100 space-y-3">
-          <p className="text-center text-sm text-gray-500">
+        <div className="p-4 border-t border-gray-100 dark:border-[#2e2e42] space-y-3">
+          <p className="text-center text-sm text-gray-500 dark:text-gray-400">
             {selectedIds.size > 0
               ? `${selectedIds.size} item${selectedIds.size > 1 ? 's' : ''} selected`
               : 'Select at least one item'}
@@ -115,7 +115,7 @@ export function MatchPopupModal({ matches, onCreateOffer, onCancel }: MatchPopup
             <button
               type="button"
               onClick={onCancel}
-              className="flex-1 px-4 py-3 border border-gray-300 rounded-full font-medium hover:bg-gray-50 transition-colors"
+              className="flex-1 px-4 py-3 border border-gray-300 dark:border-[#3a3a52] dark:text-gray-200 rounded-full font-medium hover:bg-gray-50 dark:hover:bg-[#252535] transition-colors"
             >
               Cancel
             </button>
