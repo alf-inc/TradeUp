@@ -821,7 +821,12 @@ export function ProfileView({ setActiveView }: ProfileViewProps) {
             ) : (
               <div className="grid gap-4">
                 {tradeHistory.map((trade) => (
-                  <TradeHistoryCard key={trade.id} trade={trade} onViewChat={handleViewTradeChat} />
+                  <TradeHistoryCard
+                    key={trade.id}
+                    trade={trade}
+                    onViewChat={handleViewTradeChat}
+                    onRatingSubmitted={() => setTradesFetchKey((k) => k + 1)}
+                  />
                 ))}
               </div>
             )}
