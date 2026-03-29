@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { X, Send, Check, Clock, Ban } from 'lucide-react';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase/firebase';
 
 interface Message {
@@ -51,69 +51,66 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
     if (!currentUserId || !chatId) return;
 
     let isMounted = true;
+    let unsubscribe: (() => void) | null = null;
 
     const initializeChat = async () => {
       setFetchError(null);
       setLoading(true);
-      setMessages([]);
-      try {
-        const res = await fetch(`http://localhost:8000/chats/${chatId}/messages?userId=${currentUserId}`);
-        if (!res.ok) {
-          throw new Error(`Failed to load messages (${res.status})`);
-        }
-        if (isMounted) {
-          const data = await res.json();
-          setMessages(data.messages || []);
-        }
 
+      try {
+        // 1. Setup Firestore Real-time Listener
+        // We target the subcollection: chats/{chatId}/messages
+        const messagesRef = collection(db, "chats", chatId, "messages");
+        const q = query(messagesRef, orderBy("timestamp", "asc"));
+
+        unsubscribe = onSnapshot(q, (snapshot) => {
+          if (!isMounted) return;
+
+          const updatedMessages = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              messageId: doc.id,
+              senderId: data.senderId,
+              message: data.message,
+              timestamp: data.timestamp,
+            } as Message;
+          });
+
+          setMessages(updatedMessages);
+          setLoading(false); // Data has arrived
+        }, (error) => {
+          console.error("Firestore onSnapshot error:", error);
+          if (isMounted) setFetchError("Failed to sync messages.");
+        });
+
+        // 2. Keep WebSocket for WRITING if needed by backend logic
+        // But we no longer use ws.onmessage to update the state
         if (!readOnly) {
           const wsUrl = `ws://localhost:8000/chats/ws/${chatId}?userId=${currentUserId}`;
           const ws = new WebSocket(wsUrl);
 
-          ws.onopen = () => {
-            if (isMounted) setWsReady(true);
-          };
-
-          ws.onclose = () => {
-            if (isMounted) setWsReady(false);
-          };
-
-          ws.onmessage = (event) => {
-            try {
-              const incomingMessage = JSON.parse(event.data);
-              if (incomingMessage.error) {
-                console.error('WebSocket Error:', incomingMessage.error);
-                return;
-              }
-              if (isMounted) {
-                setMessages((prev) => [...prev, incomingMessage]);
-              }
-            } catch {
-              console.error('Failed to parse WebSocket message');
-            }
-          };
-
-          ws.onerror = () => {
-            if (isMounted) {
-              console.error('WebSocket connection error');
-            }
-          };
-
+          ws.onopen = () => { if (isMounted) setWsReady(true); };
+          ws.onclose = () => { if (isMounted) setWsReady(false); };
+          
+          // Note: We ignore ws.onmessage because onSnapshot handles the UI update
           wsRef.current = ws;
         }
       } catch (error) {
         if (isMounted) {
-          setFetchError(error instanceof Error ? error.message : 'Could not load messages. Please try again.');
+          setFetchError(error instanceof Error ? error.message : 'Could not connect.');
+          setLoading(false);
         }
-      } finally {
-        if (isMounted) setLoading(false);
       }
     };
 
     initializeChat();
 
+    // Cleanup: This runs when the component unmounts or chatId changes
     return () => {
       isMounted = false;
+      if (unsubscribe) {
+        unsubscribe(); // Critical: Detach the Firestore listener
+      }
       if (wsRef.current) {
         wsRef.current.close();
       }
