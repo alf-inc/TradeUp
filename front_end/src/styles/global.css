@@ -190,3 +190,83 @@
 html {
   font-size: var(--font-size);
 }
+
+/* ===== DARK MODE OVERRIDES ===== */
+
+/* Backgrounds */
+.dark .bg-blue-50    { background-color: #0f1117 !important; }
+.dark .bg-white      { background-color: #1c1c28 !important; }
+.dark .bg-white\/90  { background-color: rgba(28, 28, 40, 0.92) !important; }
+.dark .bg-gray-50    { background-color: #161622 !important; }
+.dark .bg-gray-100   { background-color: #252535 !important; }
+.dark .bg-purple-50  { background-color: #2d1f4e !important; }
+
+/* Text */
+.dark .text-gray-900 { color: #f1f5f9 !important; }
+.dark .text-gray-800 { color: #e2e8f0 !important; }
+.dark .text-gray-700 { color: #cbd5e1 !important; }
+.dark .text-gray-600 { color: #94a3b8 !important; }
+.dark .text-gray-500 { color: #94a3b8 !important; }
+.dark .text-gray-400 { color: #64748b !important; }
+
+/* Borders */
+.dark .border-b        { border-color: #2e2e42 !important; }
+.dark .border-t        { border-color: #2e2e42 !important; }
+.dark .border          { border-color: #2e2e42 !important; }
+.dark .border-gray-100 { border-color: #252535 !important; }
+.dark .border-gray-200 { border-color: #2e2e42 !important; }
+.dark .border-gray-300 { border-color: #3a3a52 !important; }
+
+/* Gradient backgrounds (login screen) */
+.dark .bg-gradient-to-br.from-blue-50 {
+  background: linear-gradient(to bottom right, #0f1117, #13131f) !important;
+}
+
+/* Hover states */
+.dark .hover\:bg-gray-100:hover { background-color: #252535 !important; }
+.dark .hover\:bg-gray-50:hover  { background-color: #1e1e2e !important; }
+.dark .hover\:border-gray-300:hover { border-color: #3a3a52 !important; }
+
+/* Inputs */
+.dark .focus\:bg-white:focus { background-color: #252535 !important; }
+
+/* ===== COLOUR BLIND MODE OVERRIDES ===== */
+
+/* DEUTERANOPIA — red-green deficiency (most common). Red → Amber, Green → Blue */
+[data-cbm="deuteranopia"] .bg-green-50\/60 { background-color: rgba(239,246,255,0.6) !important; }
+[data-cbm="deuteranopia"] .bg-green-50    { background-color: #eff6ff !important; }
+[data-cbm="deuteranopia"] .bg-green-100   { background-color: #dbeafe !important; }
+[data-cbm="deuteranopia"] .text-green-500 { color: #3b82f6 !important; }
+[data-cbm="deuteranopia"] .text-green-700 { color: #1d4ed8 !important; }
+[data-cbm="deuteranopia"] .fill-green-400 { fill: #60a5fa !important; }
+[data-cbm="deuteranopia"] .bg-red-50\/60   { background-color: rgba(255,251,235,0.6) !important; }
+[data-cbm="deuteranopia"] .bg-red-50      { background-color: #fffbeb !important; }
+[data-cbm="deuteranopia"] .bg-red-100     { background-color: #fef3c7 !important; }
+[data-cbm="deuteranopia"] .bg-red-600     { background-color: #d97706 !important; }
+[data-cbm="deuteranopia"] .text-red-400   { color: #f59e0b !important; }
+[data-cbm="deuteranopia"] .text-red-500   { color: #d97706 !important; }
+[data-cbm="deuteranopia"] .text-red-700   { color: #b45309 !important; }
+
+/* PROTANOPIA — red-green deficiency (reduced red). Red → Orange, Green → Cyan */
+[data-cbm="protanopia"] .bg-green-50\/60 { background-color: rgba(236,254,255,0.6) !important; }
+[data-cbm="protanopia"] .bg-green-50    { background-color: #ecfeff !important; }
+[data-cbm="protanopia"] .bg-green-100   { background-color: #cffafe !important; }
+[data-cbm="protanopia"] .text-green-500 { color: #06b6d4 !important; }
+[data-cbm="protanopia"] .text-green-700 { color: #0e7490 !important; }
+[data-cbm="protanopia"] .fill-green-400 { fill: #22d3ee !important; }
+[data-cbm="protanopia"] .bg-red-50\/60   { background-color: rgba(255,247,237,0.6) !important; }
+[data-cbm="protanopia"] .bg-red-50      { background-color: #fff7ed !important; }
+[data-cbm="protanopia"] .bg-red-100     { background-color: #ffedd5 !important; }
+[data-cbm="protanopia"] .bg-red-600     { background-color: #ea580c !important; }
+[data-cbm="protanopia"] .text-red-400   { color: #f97316 !important; }
+[data-cbm="protanopia"] .text-red-500   { color: #ea580c !important; }
+[data-cbm="protanopia"] .text-red-700   { color: #c2410c !important; }
+
+/* TRITANOPIA — blue-yellow deficiency. Yellow → Slate, Blue → Pink */
+[data-cbm="tritanopia"] .bg-yellow-50    { background-color: #fff7ed !important; }
+[data-cbm="tritanopia"] .bg-yellow-100   { background-color: #ffedd5 !important; }
+[data-cbm="tritanopia"] .text-yellow-700 { color: #c2410c !important; }
+[data-cbm="tritanopia"] .fill-yellow-400 { fill: #f97316 !important; }  /* orange — clearly visible for tritanopia */
+[data-cbm="tritanopia"] .text-yellow-400 { color: #f97316 !important; } /* orange — clearly visible for tritanopia */
+[data-cbm="tritanopia"] .bg-blue-100     { background-color: #fce7f3 !important; }
+[data-cbm="tritanopia"] .text-blue-700   { color: #be185d !important; }

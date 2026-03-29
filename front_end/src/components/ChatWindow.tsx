@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { X, Send, Check } from 'lucide-react';
+import { X, Send, Check, Clock, Ban } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase/firebase';
 
@@ -217,9 +217,15 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
                   <span>Confirmed!</span>
                 </>
               ) : tradeState === 'waiting' ? (
-                <span>Waiting for {matchedWith.userName}...</span>
+                <>
+                  <Clock className="w-4 h-4" />
+                  <span>Waiting for {matchedWith.userName}...</span>
+                </>
               ) : tradeState === 'rejected' ? (
-                <span>Trade Declined</span>
+                <>
+                  <Ban className="w-4 h-4" />
+                  <span>Trade Declined</span>
+                </>
               ) : (
                 <span>Confirm Trade</span>
               )}
