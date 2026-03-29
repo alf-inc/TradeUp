@@ -1,4 +1,4 @@
-import { ArrowDownUp, MessageCircle, Star } from "lucide-react";
+import { ArrowDownUp, MessageCircle, Star, Upload, Download, CheckCircle } from "lucide-react";
 import type { CompletedTrade } from "../types";
 
 interface TradeHistoryCardProps {
@@ -54,7 +54,8 @@ export function TradeHistoryCard({ trade, onViewChat }: TradeHistoryCardProps) {
             <p className="text-xs text-gray-400">{formattedDate}</p>
           </div>
         </div>
-        <span className="text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded-full capitalize">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded-full capitalize">
+          <CheckCircle className="w-3 h-3" />
           {trade.status === "confirmed" ? "Completed" : trade.status}
         </span>
       </div>
@@ -73,7 +74,8 @@ export function TradeHistoryCard({ trade, onViewChat }: TradeHistoryCardProps) {
               }}
             />
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-red-400 mb-0.5">
+              <p className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-red-400 mb-0.5">
+                <Upload className="w-3 h-3" />
                 You Gave
               </p>
               <p className="text-sm font-medium text-gray-800 truncate">
@@ -96,7 +98,8 @@ export function TradeHistoryCard({ trade, onViewChat }: TradeHistoryCardProps) {
               }}
             />
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-green-500 mb-0.5">
+              <p className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-green-500 mb-0.5">
+                <Download className="w-3 h-3" />
                 You Got
               </p>
               <p className="text-sm font-medium text-gray-800 truncate">

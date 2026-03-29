@@ -3,11 +3,12 @@ import SwipeView from './components/SwipeView';
 import { ProfileView } from './components/ProfileView';
 import { MatchesView } from './components/MatchesView';
 import { SavedItemsView } from './components/SavedItemsView';
-import { Heart, User, MessageCircle } from 'lucide-react';
+import { Heart, User, MessageCircle, Settings } from 'lucide-react';
 
 import { auth, getLikedItems } from "./firebase/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { NotificationsBell } from "./components/NotificationsBell";
+import { SettingsModal } from "./components/SettingsModal";
 
 
 export default function App() {
@@ -39,10 +40,12 @@ export default function App() {
   }, []);
   
   const [activeView, setActiveView] = useState<'Listings' | 'matches' | 'profile' | 'saved'>('Listings');
+  const [showSettings, setShowSettings] = useState(false);
 
   return (
     <div className={`min-h-screen bg-blue-50`}>
-      <div className="max-w-md mx-auto h-screen flex flex-col">
+      <div className="max-w-md mx-auto h-screen flex flex-col relative">
+        {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
         {/* Header */}
         <header className="bg-white shadow-sm p-4 relative z-10">
           <div className="relative flex items-center justify-center">
@@ -50,8 +53,15 @@ export default function App() {
               TradeUp
             </h1>
 
-            <div className="absolute right-0">
+            <div className="absolute right-0 flex items-center gap-1">
               <NotificationsBell userId={userId} />
+              <button
+                className="relative p-2.5 rounded-lg hover:bg-gray-100"
+                aria-label="Settings"
+                onClick={() => setShowSettings(true)}
+              >
+                <Settings className="w-6 h-6 text-gray-700" />
+              </button>
             </div>
           </div>
         </header>
