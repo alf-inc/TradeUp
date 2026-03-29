@@ -214,6 +214,11 @@ html {
 .dark .border        { border-color: #2e2e42 !important; }
 .dark .border-gray-200 { border-color: #2e2e42 !important; }
 
+/* Gradient backgrounds (login screen) */
+.dark .bg-gradient-to-br.from-blue-50 {
+  background: linear-gradient(to bottom right, #0f1117, #13131f) !important;
+}
+
 /* Hover states */
 .dark .hover\:bg-gray-100:hover { background-color: #252535 !important; }
 
