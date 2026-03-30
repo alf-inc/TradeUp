@@ -2,6 +2,7 @@
 
 from fastapi import HTTPException
 from google.cloud.firestore_v1.base_query import FieldFilter
+from google.cloud import firestore
 
 def _build_match_key(user_a: str, user_b: str, item_a: str, item_b: str) -> str:
     """
@@ -80,7 +81,7 @@ def confirm_if_both_accepted(db, notification_id: str):
 
     if not trade_snap.exists:
         trade_ref.set({
-            "trade_id": match_key,   # add this
+            "trade_id": match_key,
             "matchKey": match_key,
             "user1_id": user_id,
             "user2_id": other_user_id,
@@ -88,7 +89,18 @@ def confirm_if_both_accepted(db, notification_id: str):
             "item2_id": their_item_id,
             "user1_rating": None,
             "user2_rating": None,
-            "status": "confirmed",  # or "completed" if your team prefers
+            "status": "confirmed",
+        })
+
+        # Archive both traded items so they no longer appear in feed/profile
+        db.collection("items").document(my_item_id).update({
+            "isArchived": True,
+            "archivedAt": firestore.SERVER_TIMESTAMP,
+        })
+
+        db.collection("items").document(their_item_id).update({
+            "isArchived": True,
+            "archivedAt": firestore.SERVER_TIMESTAMP,
         })
 
     # Optional: mark both notifications as "confirmed"
