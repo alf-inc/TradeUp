@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { X, Send, Check, Clock, Ban } from 'lucide-react';
-import { doc, updateDoc, collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { X, Send, Check, Clock, Ban, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { doc, updateDoc, collection, query, orderBy, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase/firebase';
 
 interface Message {
@@ -8,6 +8,11 @@ interface Message {
   senderId: string;
   message: string;
   timestamp?: any;
+}
+
+interface TradeConfirmation {
+  requestedBy: string;
+  status: 'pending' | 'confirmed' | 'rejected';
 }
 
 interface ChatWindowProps {
@@ -31,15 +36,19 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [wsReady, setWsReady] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [isConfirming, setIsConfirming] = useState(false);
 
+  // Trade confirmation state synced from Firestore chat doc (real-time)
+  const [tradeConfirmation, setTradeConfirmation] = useState<TradeConfirmation | null>(null);
+
+  // Local trade state — initialised from props, updated by Firestore listener
   const [tradeState, setTradeState] = useState<'idle' | 'waiting' | 'confirmed' | 'rejected'>(() => {
     if (isFullyConfirmed) return 'confirmed';
     if (initialStatus === 'accepted') return 'waiting';
     if (initialStatus === 'rejected') return 'rejected';
     return 'idle';
   });
-  const [isConfirming, setIsConfirming] = useState(false);
-  
+
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentUserId = auth.currentUser?.uid;
@@ -48,6 +57,7 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Listen to Firestore messages
   useEffect(() => {
     if (!currentUserId || !chatId) return;
 
@@ -59,7 +69,6 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
       setLoading(true);
 
       try {
-        // 1. Setup Firestore Real-time Listener (The Read Mechanism)
         const messagesRef = collection(db, 'chats', chatId, 'messages');
         const q = query(messagesRef, orderBy('timestamp', 'asc'));
 
@@ -67,7 +76,6 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
           q,
           (snapshot) => {
             if (!isMounted) return;
-            
             const updatedMessages = snapshot.docs.map(doc => {
               const data = doc.data();
               return {
@@ -77,9 +85,8 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
                 timestamp: data.timestamp,
               } as Message;
             });
-
             setMessages(updatedMessages);
-            setLoading(false); // Data has arrived
+            setLoading(false);
           },
           (error) => {
             console.error("Firestore onSnapshot error:", error);
@@ -90,38 +97,20 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
           }
         );
 
-        // 2. Setup WebSocket (The Write Mechanism)
         if (!readOnly) {
           const wsUrl = `ws://localhost:8000/chats/ws/${chatId}?userId=${currentUserId}`;
           const ws = new WebSocket(wsUrl);
-
-          ws.onopen = () => {
-            if (isMounted) setWsReady(true);
-          };
-
-          ws.onclose = () => {
-            if (isMounted) setWsReady(false);
-          };
-
+          ws.onopen = () => { if (isMounted) setWsReady(true); };
+          ws.onclose = () => { if (isMounted) setWsReady(false); };
           ws.onmessage = (event) => {
             try {
-              const incomingMessage = JSON.parse(event.data);
-              // We only listen for errors now. The actual message UI update 
-              // is handled automatically by the onSnapshot listener above.
-              if (incomingMessage.error) {
-                console.error('WebSocket Error:', incomingMessage.error);
-              }
+              const incoming = JSON.parse(event.data);
+              if (incoming.error) console.error('WebSocket Error:', incoming.error);
             } catch {
               console.error('Failed to parse WebSocket message');
             }
           };
-
-          ws.onerror = () => {
-            if (isMounted) {
-              console.error('WebSocket connection error');
-            }
-          };
-
+          ws.onerror = () => { if (isMounted) console.error('WebSocket connection error'); };
           wsRef.current = ws;
         }
       } catch (error) {
@@ -134,60 +123,70 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
 
     initializeChat();
 
-    // Cleanup phase
     return () => {
       isMounted = false;
-      if (unsubscribeSnapshot) {
-        unsubscribeSnapshot(); // Critical: Detach the Firestore listener
-      }
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
+      if (unsubscribeSnapshot) unsubscribeSnapshot();
+      if (wsRef.current) wsRef.current.close();
     };
-  }, [chatId, currentUserId, readOnly, retryCount]); // Added retryCount to dependencies
+  }, [chatId, currentUserId, readOnly, retryCount]);
+
+  // Listen to Firestore chat doc for real-time trade confirmation state
+  useEffect(() => {
+    if (!chatId || !currentUserId) return;
+
+    const chatDocRef = doc(db, 'chats', chatId);
+    const unsub = onSnapshot(chatDocRef, (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+      const tc = data?.tradeConfirmation as TradeConfirmation | undefined;
+      if (!tc) return;
+
+      setTradeConfirmation(tc);
+
+      // Sync local trade state
+      if (tc.status === 'confirmed') setTradeState('confirmed');
+      else if (tc.status === 'rejected') setTradeState('rejected');
+      else if (tc.status === 'pending' && tc.requestedBy === currentUserId) setTradeState('waiting');
+    });
+
+    return () => unsub();
+  }, [chatId, currentUserId]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim() || !wsRef.current || !currentUserId) return;
     if (wsRef.current.readyState !== WebSocket.OPEN) return;
-
-    const payload = {
-      senderId: currentUserId,
-      message: inputText.trim(),
-    };
-
-    wsRef.current.send(JSON.stringify(payload));
+    wsRef.current.send(JSON.stringify({ senderId: currentUserId, message: inputText.trim() }));
     setInputText('');
   };
 
+  // User A clicks "Confirm Trade" — requests confirmation from User B
   const handleConfirmTrade = async () => {
-    if (!notificationId) return;
+    if (!notificationId || !currentUserId) return;
     setIsConfirming(true);
     try {
-      // 1. Update YOUR notification to 'accepted' in Firestore
-      const notifRef = doc(db, 'notifications', notificationId);
-      await updateDoc(notifRef, {
-        status: 'accepted'
-      });
+      await updateDoc(doc(db, 'notifications', notificationId), { status: 'accepted' });
 
-      // 2. Ping the backend to check if the OTHER user also accepted
-      const res = await fetch(`http://localhost:8000/trades/confirm?notificationId=${notificationId}`, {
-        method: 'POST'
-      });
+      // Write to shared chat doc so User B sees the request in real-time
+      await setDoc(doc(db, 'chats', chatId), {
+        tradeConfirmation: {
+          requestedBy: currentUserId,
+          status: 'pending',
+          requestedAt: serverTimestamp(),
+        }
+      }, { merge: true });
 
+      const res = await fetch(`http://localhost:8000/trades/confirm?notificationId=${notificationId}`, { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
-        
-        // 3. Update UI based on backend response
         if (data.confirmed) {
+          await setDoc(doc(db, 'chats', chatId), {
+            tradeConfirmation: { requestedBy: currentUserId, status: 'confirmed' }
+          }, { merge: true });
           setTradeState('confirmed');
         } else {
-          // You accepted, but the backend couldn't confirm because the other user hasn't yet
-          setTradeState('waiting'); 
+          setTradeState('waiting');
         }
-      } else {
-        const text = await res.text();
-        console.error("Failed to confirm trade:", text);
       }
     } catch (error) {
       console.error("Error confirming trade:", error);
@@ -195,6 +194,62 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
       setIsConfirming(false);
     }
   };
+
+  // User B clicks "Accept"
+  const handleAcceptTrade = async () => {
+    if (!notificationId || !currentUserId || !tradeConfirmation) return;
+    setIsConfirming(true);
+    try {
+      await updateDoc(doc(db, 'notifications', notificationId), { status: 'accepted' });
+
+      const res = await fetch(`http://localhost:8000/trades/confirm?notificationId=${notificationId}`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.confirmed) {
+          await setDoc(doc(db, 'chats', chatId), {
+            tradeConfirmation: { requestedBy: tradeConfirmation.requestedBy, status: 'confirmed' }
+          }, { merge: true });
+          setTradeState('confirmed');
+        }
+      }
+    } catch (error) {
+      console.error("Error accepting trade:", error);
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
+  // User B clicks "Reject"
+  const handleRejectTrade = async () => {
+    if (!notificationId || !currentUserId || !tradeConfirmation) return;
+    setIsConfirming(true);
+    try {
+      await fetch(`http://localhost:8000/trades/reject?notificationId=${notificationId}`, { method: 'POST' });
+
+      await setDoc(doc(db, 'chats', chatId), {
+        tradeConfirmation: { requestedBy: tradeConfirmation.requestedBy, status: 'rejected' }
+      }, { merge: true });
+
+      setTradeState('rejected');
+    } catch (error) {
+      console.error("Error rejecting trade:", error);
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
+  // Derive display state from Firestore data + local state
+  const displayTradeState = (() => {
+    if (isFullyConfirmed || tradeState === 'confirmed') return 'confirmed';
+    if (tradeState === 'rejected') return 'rejected';
+    if (tradeConfirmation?.status === 'confirmed') return 'confirmed';
+    if (tradeConfirmation?.status === 'rejected') return 'rejected';
+    if (tradeConfirmation?.status === 'pending') {
+      return tradeConfirmation.requestedBy === currentUserId ? 'waiting' : 'respond';
+    }
+    if (tradeState === 'waiting') return 'waiting';
+    return 'idle';
+  })();
 
   if (!currentUserId) return null;
 
@@ -213,48 +268,54 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
           />
           <h2 className="text-base font-bold text-gray-800 truncate">{matchedWith.userName}</h2>
         </div>
-        
-        {/* Header Action Buttons */}
+
         <div className="flex items-center gap-2">
           {readOnly ? (
             <span className="flex items-center gap-1 px-3 py-2 rounded-full text-sm font-medium bg-green-100 text-green-700">
               <Check className="w-4 h-4" />
               <span>Trade Completed</span>
             </span>
+          ) : displayTradeState === 'confirmed' ? (
+            <span className="flex items-center gap-1 px-3 py-2 rounded-full text-sm font-medium bg-green-100 text-green-700">
+              <Check className="w-4 h-4" />
+              <span>Confirmed!</span>
+            </span>
+          ) : displayTradeState === 'rejected' ? (
+            <span className="flex items-center gap-1 px-3 py-2 rounded-full text-sm font-medium bg-red-100 text-red-700">
+              <Ban className="w-4 h-4" />
+              <span>Trade Declined</span>
+            </span>
+          ) : displayTradeState === 'waiting' ? (
+            <span className="flex items-center gap-1 px-3 py-2 rounded-full text-sm font-medium bg-yellow-100 text-yellow-700">
+              <Clock className="w-4 h-4" />
+              <span className="truncate max-w-[140px]">Waiting for {matchedWith.userName}...</span>
+            </span>
+          ) : displayTradeState === 'respond' ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleAcceptTrade}
+                disabled={isConfirming}
+                className="flex items-center gap-1 px-3 py-2 rounded-full text-sm font-medium bg-green-100 text-green-700 hover:bg-green-200 transition-colors disabled:opacity-50"
+              >
+                <ThumbsUp className="w-4 h-4" />
+                <span>Accept</span>
+              </button>
+              <button
+                onClick={handleRejectTrade}
+                disabled={isConfirming}
+                className="flex items-center gap-1 px-3 py-2 rounded-full text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-colors disabled:opacity-50"
+              >
+                <ThumbsDown className="w-4 h-4" />
+                <span>Reject</span>
+              </button>
+            </div>
           ) : (
             <button
               onClick={handleConfirmTrade}
-              disabled={tradeState !== 'idle' || isConfirming}
-              className={`flex items-center gap-1 px-3 py-2 rounded-full text-sm font-medium transition-colors min-h-[44px] ${
-                tradeState === 'confirmed'
-                  ? 'bg-green-100 text-green-700 cursor-default'
-                  : tradeState === 'waiting'
-                  ? 'bg-yellow-100 text-yellow-700 cursor-default'
-                  : tradeState === 'rejected'
-                  ? 'bg-red-100 text-red-700 cursor-default'
-                  : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-              }`}
+              disabled={isConfirming}
+              className="flex items-center gap-1 px-3 py-2 rounded-full text-sm font-medium bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors disabled:opacity-50"
             >
-              {isConfirming ? (
-                <span>Processing...</span>
-              ) : tradeState === 'confirmed' ? (
-                <>
-                  <Check className="w-4 h-4" />
-                  <span>Confirmed!</span>
-                </>
-              ) : tradeState === 'waiting' ? (
-                <>
-                  <Clock className="w-4 h-4" />
-                  <span>Waiting for {matchedWith.userName}...</span>
-                </>
-              ) : tradeState === 'rejected' ? (
-                <>
-                  <Ban className="w-4 h-4" />
-                  <span>Trade Declined</span>
-                </>
-              ) : (
-                <span>Confirm Trade</span>
-              )}
+              {isConfirming ? <span>Processing...</span> : <span>Confirm Trade</span>}
             </button>
           )}
 
@@ -279,8 +340,7 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
               onClick={() => {
                 setFetchError(null);
                 setLoading(true);
-                // Incrementing this state forces the useEffect to re-run and re-attach the listener
-                setRetryCount(prev => prev + 1); 
+                setRetryCount(prev => prev + 1);
               }}
               className="text-sm text-purple-600 underline hover:text-purple-800"
             >
@@ -295,14 +355,14 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
           messages.map((msg, index) => {
             const isMe = msg.senderId === currentUserId;
             return (
-              <div 
-                key={msg.messageId || index} 
+              <div
+                key={msg.messageId || index}
                 className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
               >
-                <div 
+                <div
                   className={`max-w-[75%] rounded-2xl px-4 py-2 ${
-                    isMe 
-                      ? 'bg-purple-600 text-white rounded-br-sm' 
+                    isMe
+                      ? 'bg-purple-600 text-white rounded-br-sm'
                       : 'bg-white border text-gray-800 rounded-bl-sm shadow-sm'
                   }`}
                 >

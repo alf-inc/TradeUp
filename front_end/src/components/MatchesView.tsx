@@ -176,7 +176,7 @@ export function MatchesView() {
 
         const cleanMatches = hydratedMatches
           .filter((m): m is HydratedMatch => m !== null)
-          .filter((m) => m.confirmed !== true);
+          .filter((m) => m.confirmed !== true && m.status !== 'rejected');
 
         // Fetch all chats to get lastMessage preview and chatId for each match
         try {

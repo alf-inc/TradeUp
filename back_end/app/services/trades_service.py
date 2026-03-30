@@ -112,6 +112,64 @@ def confirm_if_both_accepted(db, notification_id: str):
     return {"confirmed": True, "tradeId": match_key}
 
 
+def reject_trade_service(db, notification_id: str):
+    """
+    Called when a user clicks Reject on a trade confirmation request.
+    Marks both notifications as rejected and writes a rejected trade record.
+    """
+    notif_ref = db.collection("notifications").document(notification_id)
+    notif_snap = notif_ref.get()
+
+    if not notif_snap.exists:
+        raise HTTPException(status_code=404, detail="Notification not found")
+
+    notif = notif_snap.to_dict()
+    user_id = notif.get("userId")
+    payload = notif.get("payload") or {}
+    other_user_id = payload.get("otherUserId")
+    their_item_id = payload.get("itemId")
+    my_item_id = payload.get("mutualItemId")
+
+    if not (user_id and other_user_id and their_item_id and my_item_id):
+        raise HTTPException(status_code=400, detail="Notification payload missing required fields")
+
+    # Mark current user's notification as rejected
+    notif_ref.update({"status": "rejected"})
+
+    # Find and mark the other user's notification as rejected
+    q = (
+        db.collection("notifications")
+        .where(filter=FieldFilter("userId", "==", other_user_id))
+        .where(filter=FieldFilter("type", "==", "MUTUAL_MATCH"))
+        .where(filter=FieldFilter("payload.otherUserId", "==", user_id))
+        .where(filter=FieldFilter("payload.itemId", "==", my_item_id))
+        .where(filter=FieldFilter("payload.mutualItemId", "==", their_item_id))
+        .limit(1)
+    )
+    other_docs = list(q.stream())
+    if other_docs:
+        other_docs[0].reference.update({"status": "rejected"})
+
+    # Write a rejected trade record so it appears in Trade History
+    match_key = _build_match_key(user_id, other_user_id, my_item_id, their_item_id)
+    trade_ref = db.collection("completed_trades").document(match_key)
+    if not trade_ref.get().exists:
+        trade_ref.set({
+            "trade_id": match_key,
+            "matchKey": match_key,
+            "user1_id": user_id,
+            "user2_id": other_user_id,
+            "item1_id": my_item_id,
+            "item2_id": their_item_id,
+            "user1_rating": None,
+            "user2_rating": None,
+            "status": "rejected",
+            "completedAt": firestore.SERVER_TIMESTAMP,
+        })
+
+    return {"rejected": True}
+
+
 def get_trade_history_for_user(db, user_id: str):
     """
     Firestore doesn't do OR queries easily, so we run 2 queries and merge.

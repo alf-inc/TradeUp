@@ -263,8 +263,8 @@ export function ProfileView({ setActiveView }: ProfileViewProps) {
         await Promise.all(
           snapshot.docs.map(async (d) => {
             const data = d.data();
-            // Skip completed/confirmed trades — mirrors MatchesView filter
-            if (data.confirmed === true) return;
+            // Skip completed/confirmed and rejected trades — mirrors MatchesView filter
+            if (data.confirmed === true || data.status === 'rejected') return;
 
             const payload = data.payload || {};
             const itemId = payload.itemId;

@@ -6,6 +6,7 @@ import {
   Upload,
   Download,
   CheckCircle,
+  XCircle,
 } from "lucide-react";
 import type { CompletedTrade } from "../types";
 import { submitTradeRating } from "../api/trades";
@@ -127,10 +128,17 @@ export function TradeHistoryCard({
             <p className="text-xs text-gray-400">{formattedDate}</p>
           </div>
         </div>
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded-full capitalize">
-          <CheckCircle className="w-3 h-3" />
-          {trade.status === "confirmed" ? "Completed" : trade.status}
-        </span>
+        {trade.status === "rejected" ? (
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 px-2 py-1 rounded-full">
+            <XCircle className="w-3 h-3" />
+            Rejected
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded-full capitalize">
+            <CheckCircle className="w-3 h-3" />
+            {trade.status === "confirmed" ? "Completed" : trade.status}
+          </span>
+        )}
       </div>
 
       <div className="px-4 py-3">
