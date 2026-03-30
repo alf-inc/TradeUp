@@ -51,9 +51,10 @@ function getBrowserLocation(): Promise<Location> {
 
 type ProfileViewProps = {
   setActiveView: (view: 'Listings' | 'matches' | 'profile' | 'saved') => void;
+  onDirtyChange?: (dirty: boolean) => void;
 };
 
-export function ProfileView({ setActiveView }: ProfileViewProps) {
+export function ProfileView({ setActiveView, onDirtyChange }: ProfileViewProps) {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
 
@@ -107,6 +108,22 @@ export function ProfileView({ setActiveView }: ProfileViewProps) {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [saveError, setSaveError] = useState<string>("");
+
+  // Notify parent whenever the edit form becomes dirty or clean
+  useEffect(() => {
+    if (!isEditingProfile) {
+      onDirtyChange?.(false);
+      return;
+    }
+    const dirty =
+      editName      !== (profile.name          || '') ||
+      editBio       !== (profile.bio           || '') ||
+      editPhotoURL  !== (profile.photoURL      || '') ||
+      editRadiusKm  !== String(profile.radiusKm ?? 25) ||
+      editLocation?.lat !== profile.location?.lat ||
+      editLocation?.lng !== profile.location?.lng;
+    onDirtyChange?.(dirty);
+  }, [isEditingProfile, editName, editBio, editPhotoURL, editRadiusKm, editLocation]);
 
   // NEW: Item loading + error
   const [loadingItems, setLoadingItems] = useState(false);
