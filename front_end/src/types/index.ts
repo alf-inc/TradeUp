@@ -33,6 +33,7 @@ export interface Item {
   location?: Location | null;
   locationLabel?: string;
   createdAt?: number;
+  isArchived?: boolean;
 }
 
 export interface UserProfile {

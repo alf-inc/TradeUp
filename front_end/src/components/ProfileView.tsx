@@ -210,10 +210,11 @@ export function ProfileView({ setActiveView }: ProfileViewProps) {
         // Load user's items
         const userItems = await getUserItems(uid);
 
-        // Optional: sort newest first if createdAt exists
-        userItems.sort((a: any, b: any) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+        const activeItems = userItems
+          .filter((item: any) => item.isArchived !== true)
+          .sort((a: any, b: any) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
 
-        setItems(userItems);
+        setItems(activeItems);
       } catch (error) {
         console.error("Error loading profile/items:", error);
         setItemsError("Failed to load your items.");
@@ -821,7 +822,12 @@ export function ProfileView({ setActiveView }: ProfileViewProps) {
             ) : (
               <div className="grid gap-4">
                 {tradeHistory.map((trade) => (
-                  <TradeHistoryCard key={trade.id} trade={trade} onViewChat={handleViewTradeChat} />
+                  <TradeHistoryCard
+                    key={trade.id}
+                    trade={trade}
+                    onViewChat={handleViewTradeChat}
+                    onRatingSubmitted={() => setTradesFetchKey((k) => k + 1)}
+                  />
                 ))}
               </div>
             )}
@@ -843,6 +849,7 @@ export function ProfileView({ setActiveView }: ProfileViewProps) {
                 userName: profile.name,
                 userAvatar: profile.photoURL || currentUser.avatar,
                 createdAt: Date.now(),
+                isArchived: false,
               };
 
               const newId = await saveNewItem(newItemData);

@@ -20,8 +20,8 @@ export async function fetchTradeHistory(userId: string): Promise<CompletedTrade[
       const myItemId = isUser1 ? t.item1_id : t.item2_id;
       const theirItemId = isUser1 ? t.item2_id : t.item1_id;
       const partnerId = isUser1 ? t.user2_id : t.user1_id;
-      const myRating = isUser1 ? t.user1_rating : t.user2_rating;
-      const partnerRating = isUser1 ? t.user2_rating : t.user1_rating;
+      const myRating = isUser1 ? t.user2_rating : t.user1_rating;
+      const partnerRating = isUser1 ? t.user1_rating : t.user2_rating;
 
       const [myItemSnap, theirItemSnap, partnerSnap] = await Promise.all([
         getDoc(doc(db, "items", myItemId)),
@@ -57,4 +57,28 @@ export async function fetchTradeHistory(userId: string): Promise<CompletedTrade[
   );
 
   return hydrated;
+}
+
+export type SubmitTradeRatingPayload = {
+  tradeId: string;
+  raterUserId: string;
+  score: number;
+};
+
+export async function submitTradeRating(payload: SubmitTradeRatingPayload) {
+  const url = new URL(`${API_BASE}/ratings/submit`);
+  url.searchParams.set("tradeId", payload.tradeId);
+  url.searchParams.set("raterUserId", payload.raterUserId);
+  url.searchParams.set("score", String(payload.score));
+
+  const res = await fetch(url.toString(), {
+    method: "POST",
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(errorText || "Failed to submit rating");
+  }
+
+  return res.json();
 }

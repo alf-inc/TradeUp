@@ -111,6 +111,9 @@ def submit_rating(db, trade_id: str, rater_user_id: str, score: float):
 
     previous_score = trade.get(field)
 
+    if previous_score is not None:
+        raise HTTPException(status_code=400, detail="You have already rated this trade")
+
     trade_ref.update({
         field: float(score),
         "last_rating_at": int(time.time()),

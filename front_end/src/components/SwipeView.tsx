@@ -103,9 +103,11 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
           limitCount: 50,
         });
 
-        let visibleItems: FeedItemWithDistance[] = (feedItems as unknown as Item[]).map((item) => ({
-          ...item,
-        }));
+        let visibleItems: FeedItemWithDistance[] = (feedItems as unknown as Item[])
+          .filter((item) => item.isArchived !== true)
+          .map((item) => ({
+            ...item,
+          }));
 
         // Only apply radius filtering if the user has a saved location
         if (userLocation) {
