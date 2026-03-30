@@ -210,11 +210,10 @@ export function ProfileView({ setActiveView }: ProfileViewProps) {
         // Load user's items
         const userItems = await getUserItems(uid);
 
-        const activeItems = userItems
-          .filter((item: any) => item.isArchived !== true)
-          .sort((a: any, b: any) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+        // Optional: sort newest first if createdAt exists
+        userItems.sort((a: any, b: any) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
 
-        setItems(activeItems);
+        setItems(userItems);
       } catch (error) {
         console.error("Error loading profile/items:", error);
         setItemsError("Failed to load your items.");
@@ -849,7 +848,6 @@ export function ProfileView({ setActiveView }: ProfileViewProps) {
                 userName: profile.name,
                 userAvatar: profile.photoURL || currentUser.avatar,
                 createdAt: Date.now(),
-                isArchived: false,
               };
 
               const newId = await saveNewItem(newItemData);
