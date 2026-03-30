@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MessageCircle, Clock } from 'lucide-react';
 import { auth, db } from '../firebase/firebase'; 
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, orderBy, limit } from 'firebase/firestore';
 import { ChatWindow } from './ChatWindow'; 
 
 interface MatchNotification {
@@ -36,6 +36,8 @@ const SESSION_KEY = 'tradeup_active_chat';
 export function MatchesView() {
   const [matches, setMatches] = useState<HydratedMatch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [knownChats, setKnownChats] = useState<Array<{ chatId: string; participants: string[]; notificationId: string; lastMessage: string; lastMessageAt: any }>>([]);
 
   // State to track if we are viewing a specific chat
   const [activeChat, setActiveChat] = useState<{
@@ -84,14 +86,28 @@ export function MatchesView() {
       sessionStorage.removeItem(SESSION_KEY);
     } catch { /* ignore */ }
     setActiveChat(null);
+    setRefreshKey(k => k + 1);
   };
 
   const handleOpenChat = async (match: HydratedMatch) => {
     if (!auth.currentUser) return;
+    const uid = auth.currentUser.uid;
 
-    // If we already have the chatId from preloading, skip the API call
+    // If we already have the chatId from preloading, use it
     if (match.chatId) {
       openChat(match.chatId, match);
+      return;
+    }
+
+    // Before calling initiate, check if a shared chat already exists by participants.
+    // This prevents creating a duplicate chat when the other user already initiated one.
+    const existingChat = knownChats.find(c =>
+      Array.isArray(c.participants) &&
+      c.participants.includes(uid) &&
+      c.participants.includes(match.otherUserId)
+    );
+    if (existingChat) {
+      openChat(existingChat.chatId, match);
       return;
     }
 
@@ -100,7 +116,7 @@ export function MatchesView() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          currentUserId: auth.currentUser.uid,
+          currentUserId: uid,
           likedItemId: match.matchedWith.id,
           mutualItemId: match.item.id,
           notificationId: match.id,
@@ -184,10 +200,21 @@ export function MatchesView() {
           if (chatsRes.ok) {
             const chatsData = await chatsRes.json();
             const chats: Array<{ chatId: string; participants: string[]; notificationId: string; lastMessage: string; lastMessageAt: any }> = chatsData.chats || [];
+            setKnownChats(chats);
 
             for (const match of cleanMatches) {
-              // Match by notificationId so same-user/different-item chats stay separate
-              const chat = chats.find(c => c.notificationId === match.id);
+              // First try to match by notificationId (works for the user who initiated the chat)
+              let chat = chats.find(c => c.notificationId === match.id);
+
+              // Fallback: match by participants (works for the other user in the match)
+              if (!chat) {
+                chat = chats.find(c =>
+                  Array.isArray(c.participants) &&
+                  c.participants.includes(user.uid) &&
+                  c.participants.includes(match.otherUserId)
+                );
+              }
+
               if (chat) {
                 match.chatId = chat.chatId;
                 match.lastMessage = chat.lastMessage || '';
@@ -197,6 +224,28 @@ export function MatchesView() {
           }
         } catch {
         }
+
+        // Override lastMessage with the last message sent by the OTHER user
+        // so each user sees what the other person said, not their own last message
+        await Promise.all(
+          cleanMatches
+            .filter(m => m.chatId && m.otherUserId)
+            .map(async (match) => {
+              try {
+                const msgRef = collection(db, 'chats', match.chatId!, 'messages');
+                // Get the last 20 messages and find the most recent from the other user
+                const msgSnap = await getDocs(query(msgRef, orderBy('timestamp', 'desc'), limit(20)));
+                const otherMsg = msgSnap.docs.find(d => d.data().senderId === match.otherUserId);
+                if (otherMsg) {
+                  match.lastMessage = otherMsg.data().message;
+                } else {
+                  match.lastMessage = '';
+                }
+              } catch {
+                // keep existing value on error
+              }
+            })
+        );
 
         // Sort by most recent chat activity, then by match timestamp
         cleanMatches.sort((a, b) => {
@@ -215,7 +264,7 @@ export function MatchesView() {
     };
 
     fetchMatchesFromNotifications();
-  }, []);
+  }, [refreshKey]);
 
   // Chat View
   if (activeChat) {
