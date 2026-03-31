@@ -89,9 +89,8 @@ def confirm_if_both_accepted(db, notification_id: str):
             "item2_id": their_item_id,
             "user1_rating": None,
             "user2_rating": None,
-            "status": "confirmed",  # or "completed" if your team prefers
-            "completedAt": firestore.SERVER_TIMESTAMP,
             "status": "confirmed",
+            "completedAt": firestore.SERVER_TIMESTAMP,
         })
 
         # Archive both traded items so they no longer appear in feed/profile
