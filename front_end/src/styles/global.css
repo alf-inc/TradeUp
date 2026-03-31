@@ -229,6 +229,25 @@ html {
 
 /* Inputs */
 .dark .focus\:bg-white:focus { background-color: #252535 !important; }
+.dark input:not([type="checkbox"]):not([type="radio"]) {
+  background-color: #252535 !important;
+  color: #e2e8f0 !important;
+  border-color: #3a3a52 !important;
+}
+.dark textarea {
+  background-color: #252535 !important;
+  color: #e2e8f0 !important;
+  border-color: #3a3a52 !important;
+}
+.dark select {
+  background-color: #252535 !important;
+  color: #e2e8f0 !important;
+  border-color: #3a3a52 !important;
+}
+.dark option {
+  background-color: #1c1c28 !important;
+  color: #e2e8f0 !important;
+}
 
 /* ===== COLOUR BLIND MODE OVERRIDES ===== */
 

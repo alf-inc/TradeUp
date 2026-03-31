@@ -2,7 +2,6 @@
 
 from fastapi import HTTPException
 from google.cloud.firestore_v1.base_query import FieldFilter
-from google.cloud import firestore
 
 def _build_match_key(user_a: str, user_b: str, item_a: str, item_b: str) -> str:
     """
@@ -81,7 +80,7 @@ def confirm_if_both_accepted(db, notification_id: str):
 
     if not trade_snap.exists:
         trade_ref.set({
-            "trade_id": match_key,
+            "trade_id": match_key,   # add this
             "matchKey": match_key,
             "user1_id": user_id,
             "user2_id": other_user_id,
@@ -102,6 +101,7 @@ def confirm_if_both_accepted(db, notification_id: str):
         db.collection("items").document(their_item_id).update({
             "isArchived": True,
             "archivedAt": firestore.SERVER_TIMESTAMP,
+            "status": "confirmed",  # or "completed" if your team prefers
         })
 
     # Optional: mark both notifications as "confirmed"
@@ -128,12 +128,6 @@ def get_trade_history_for_user(db, user_id: str):
         seen.add(snap.id)
         d = snap.to_dict()
         d["id"] = snap.id
-        # Convert Firestore Timestamp to epoch milliseconds for JSON
-        if d.get("completedAt") and hasattr(d["completedAt"], "timestamp"):
-            d["completedAt"] = int(d["completedAt"].timestamp() * 1000)
         trades.append(d)
-
-    # Sort by completedAt descending (most recent first)
-    trades.sort(key=lambda t: t.get("completedAt") or 0, reverse=True)
 
     return {"trades": trades}
