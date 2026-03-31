@@ -56,6 +56,9 @@ export async function fetchTradeHistory(userId: string): Promise<CompletedTrade[
     })
   );
 
+  // Sort by completedAt descending (most recent first)
+  hydrated.sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0));
+
   return hydrated;
 }
 
