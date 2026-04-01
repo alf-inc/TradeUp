@@ -11,7 +11,7 @@ import {
 } from '../firebase/firebase';
 import { distanceKm, withinRadius } from '../utils/distance';
 import { MatchPopupModal } from './MatchPopupModal';
-import { useCreateOffer } from '../utils/Usecreateoffer';
+import { useCreateOffer } from '../utils/useCreateOffer';
 import { toggleSavedListing, getSavedListings } from '../api/savedListings';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
