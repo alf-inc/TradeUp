@@ -4,7 +4,7 @@ import { getAuth } from "firebase/auth";
 import { getFirestore, doc, getDoc, setDoc, collection, addDoc, query, where, getDocs, deleteDoc,
    limit, orderBy, startAfter, QueryDocumentSnapshot, DocumentData, arrayUnion, arrayRemove, updateDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-
+// commit so deploy works
 // Firebase configuration
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
