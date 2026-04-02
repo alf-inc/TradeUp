@@ -129,6 +129,7 @@ export async function getFeedItems(options: GetFeedOptions = {}) {
 
   const items: FeedItem[] = snap.docs
     .map((d) => ({ id: d.id, ...(d.data() as Omit<FeedItem, "id">) }))
+    .filter((it: any) => !it.isArchived)
     .filter((it) => (excludeUserId ? it.userId !== excludeUserId : true))
     .filter((it) => !(excludeItemIds?.includes(it.id)));
 
@@ -205,10 +206,12 @@ export async function getUserItems(uid: string) {
   const querySnapshot = await getDocs(q);
   
   // Converts Firestore docs into item format
-  return querySnapshot.docs.map((doc) => ({
-    id: doc.id, 
-    ...doc.data() 
-  }));
+  return querySnapshot.docs
+    .map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }))
+    .filter((item: any) => !item.isArchived);
 }
 
 // Delete an item given its item ID

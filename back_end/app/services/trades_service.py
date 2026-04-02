@@ -79,9 +79,10 @@ def confirm_if_both_accepted(db, notification_id: str):
     trade_ref = db.collection("completed_trades").document(match_key)
     trade_snap = trade_ref.get()
 
-    if not trade_snap.exists:
+    # Create the trade if it doesn't exist, or overwrite a previous rejected trade
+    if not trade_snap.exists or trade_snap.to_dict().get("status") == "rejected":
         trade_ref.set({
-            "trade_id": match_key,   # add this
+            "trade_id": match_key,
             "matchKey": match_key,
             "user1_id": user_id,
             "user2_id": other_user_id,
@@ -114,7 +115,8 @@ def confirm_if_both_accepted(db, notification_id: str):
 def reject_trade_service(db, notification_id: str):
     """
     Called when a user clicks Reject on a trade confirmation request.
-    Marks both notifications as rejected and writes a rejected trade record.
+    Fully deletes all match artifacts (notifications, chat, completed_trade)
+    and removes mutual likes so the items can be re-matched from scratch.
     """
     notif_ref = db.collection("notifications").document(notification_id)
     notif_snap = notif_ref.get()
@@ -132,10 +134,10 @@ def reject_trade_service(db, notification_id: str):
     if not (user_id and other_user_id and their_item_id and my_item_id):
         raise HTTPException(status_code=400, detail="Notification payload missing required fields")
 
-    # Mark current user's notification as rejected
-    notif_ref.update({"status": "rejected"})
+    # Delete current user's notification
+    notif_ref.delete()
 
-    # Find and mark the other user's notification as rejected
+    # Find and delete the other user's notification
     q = (
         db.collection("notifications")
         .where(filter=FieldFilter("userId", "==", other_user_id))
@@ -147,24 +149,49 @@ def reject_trade_service(db, notification_id: str):
     )
     other_docs = list(q.stream())
     if other_docs:
-        other_docs[0].reference.update({"status": "rejected"})
+        other_docs[0].reference.delete()
 
-    # Write a rejected trade record so it appears in Trade History
+    # Remove mutual likes so both items appear unliked in the feed
+    user_ref = db.collection("users").document(user_id)
+    other_user_ref = db.collection("users").document(other_user_id)
+    user_ref.update({"liked_items": firestore.ArrayRemove([their_item_id])})
+    other_user_ref.update({"liked_items": firestore.ArrayRemove([my_item_id])})
+
+    # Delete the chat document so a re-match creates a fresh chat
+    from app.services.chat_service import _build_participants_key, _build_item_pair_key
+    participants_key = _build_participants_key(user_id, other_user_id)
+    item_pair_key = _build_item_pair_key(my_item_id, their_item_id)
+    composite_key = f"{participants_key}__{item_pair_key}"
+
+    chat_docs = list(
+        db.collection("chats")
+        .where("compositeKey", "==", composite_key)
+        .limit(1)
+        .stream()
+    )
+    if chat_docs:
+        chat_docs[0].reference.delete()
+
+    # Delete the deterministic-key record so it won't block a future re-match
     match_key = _build_match_key(user_id, other_user_id, my_item_id, their_item_id)
     trade_ref = db.collection("completed_trades").document(match_key)
-    if not trade_ref.get().exists:
-        trade_ref.set({
-            "trade_id": match_key,
-            "matchKey": match_key,
-            "user1_id": user_id,
-            "user2_id": other_user_id,
-            "item1_id": my_item_id,
-            "item2_id": their_item_id,
-            "user1_rating": None,
-            "user2_rating": None,
-            "status": "rejected",
-            "completedAt": firestore.SERVER_TIMESTAMP,
-        })
+    if trade_ref.get().exists:
+        trade_ref.delete()
+
+    # Write a new rejected trade record with an auto-generated ID so it
+    # appears in trade history but cannot collide with a future re-match
+    db.collection("completed_trades").add({
+        "trade_id": match_key,
+        "matchKey": match_key,
+        "user1_id": user_id,
+        "user2_id": other_user_id,
+        "item1_id": my_item_id,
+        "item2_id": their_item_id,
+        "user1_rating": None,
+        "user2_rating": None,
+        "status": "rejected",
+        "completedAt": firestore.SERVER_TIMESTAMP,
+    })
 
     return {"rejected": True}
 

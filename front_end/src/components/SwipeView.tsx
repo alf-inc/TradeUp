@@ -92,7 +92,9 @@ export default function SwipeView({ userId, likedItems, setLikedItems }: SwipeVi
           if (res.ok) {
             const data = await res.json();
             for (const t of data.trades ?? []) {
-              tradedItemIds.push(t.item1_id, t.item2_id);
+              if (t.status === 'confirmed') {
+                tradedItemIds.push(t.item1_id, t.item2_id);
+              }
             }
           }
         } catch { /* non-critical */ }
