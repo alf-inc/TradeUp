@@ -29,7 +29,7 @@ export interface UseCreateOfferReturn {
   reset: () => void;
 }
 
-const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 
 export function useCreateOffer(): UseCreateOfferReturn {
   const [status, setStatus] = useState<OfferStatus>('idle');
