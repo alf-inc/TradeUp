@@ -456,7 +456,7 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
             />
             <button
               type="submit"
-              disabled={!inputText.trim() || !wsReady}
+              disabled={!inputText.trim()}
               className="bg-purple-600 text-white p-2 rounded-full hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center w-11 h-11 shrink-0"
             >
               <Send className="w-5 h-5 ml-1" />
