@@ -7,13 +7,13 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 // Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyAB010mSTZIEzhtwBAELxfpFNS-D8ZUHTI",
-  authDomain: "tradeup-301.firebaseapp.com",
-  projectId: "tradeup-301",
-  storageBucket: "tradeup-301.firebasestorage.app",
-  messagingSenderId: "829476476398",
-  appId: "1:829476476398:web:07b4b89c6d39eaf80b6aff",
-  measurementId: "G-N61WPHVQLS",
+  apiKey: "AIzaSyCwpwfF5QkDqsRNpL6h3_LaRxPnoK4ceeU",
+  authDomain: "tradeup-1f185.firebaseapp.com",
+  projectId: "tradeup-1f185",
+  storageBucket: "tradeup-1f185.firebasestorage.app",
+  messagingSenderId: "1025180734067",
+  appId: "1:1025180734067:web:e240a9151d07dd3167d006",
+  measurementId: "G-ND77G7Y7VK"
 };
 
 // Initialize Firebase
