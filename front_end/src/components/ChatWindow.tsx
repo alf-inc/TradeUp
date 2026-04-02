@@ -3,6 +3,9 @@ import { X, Send, Check, Clock, Ban, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { doc, updateDoc, collection, query, orderBy, onSnapshot, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase/firebase';
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const WS_BASE = API_BASE.replace(/^http/, 'ws');
+
 interface Message {
   messageId: string;
   senderId: string;
@@ -135,7 +138,7 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
         );
 
         if (!readOnly) {
-          const wsUrl = `ws://localhost:8000/chats/ws/${chatId}?userId=${currentUserId}`;
+          const wsUrl = `${WS_BASE}/chats/ws/${chatId}?userId=${currentUserId}`;
           const ws = new WebSocket(wsUrl);
           ws.onopen = () => { if (isMounted) setWsReady(true); };
           ws.onclose = () => { if (isMounted) setWsReady(false); };
@@ -213,7 +216,7 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
         }
       }, { merge: true });
 
-      const res = await fetch(`http://localhost:8000/trades/confirm?notificationId=${notificationId}`, { method: 'POST' });
+      const res = await fetch(`${API_BASE}/trades/confirm?notificationId=${notificationId}`, { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
         if (data.confirmed) {
@@ -239,7 +242,7 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
     try {
       await updateDoc(doc(db, 'notifications', notificationId), { status: 'accepted' });
 
-      const res = await fetch(`http://localhost:8000/trades/confirm?notificationId=${notificationId}`, { method: 'POST' });
+      const res = await fetch(`${API_BASE}/trades/confirm?notificationId=${notificationId}`, { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
         if (data.confirmed) {
@@ -261,7 +264,7 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
     if (!notificationId || !currentUserId || !tradeConfirmation) return;
     setIsConfirming(true);
     try {
-      await fetch(`http://localhost:8000/trades/reject?notificationId=${notificationId}`, { method: 'POST' });
+      await fetch(`${API_BASE}/trades/reject?notificationId=${notificationId}`, { method: 'POST' });
 
       await setDoc(doc(db, 'chats', chatId), {
         tradeConfirmation: { requestedBy: tradeConfirmation.requestedBy, status: 'rejected' }

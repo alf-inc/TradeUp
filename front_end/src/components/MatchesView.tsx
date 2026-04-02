@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { MessageCircle, Clock } from 'lucide-react';
-import { auth, db } from '../firebase/firebase'; 
+import { auth, db } from '../firebase/firebase';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
-import { ChatWindow } from './ChatWindow'; 
+import { ChatWindow } from './ChatWindow';
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 interface MatchNotification {
   id: string;
@@ -104,7 +106,7 @@ export function MatchesView() {
     }
 
     try {
-      const res = await fetch('http://localhost:8000/chats/initiate', {
+      const res = await fetch(`${API_BASE}/chats/initiate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -188,7 +190,7 @@ export function MatchesView() {
 
         // Fetch all chats to get lastMessage preview and chatId for each match
         try {
-          const chatsRes = await fetch(`http://localhost:8000/chats?userId=${user.uid}`);
+          const chatsRes = await fetch(`${API_BASE}/chats?userId=${user.uid}`);
           if (chatsRes.ok) {
             const chatsData = await chatsRes.json();
             const chats: Array<{ chatId: string; participants: string[]; notificationId: string; lastMessage: string; lastMessageAt: any }> = chatsData.chats || [];
