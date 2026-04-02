@@ -138,6 +138,7 @@ export function ProfileView({ setActiveView, onDirtyChange }: ProfileViewProps) 
   // Chat history viewer for completed trades
   const [historyChatView, setHistoryChatView] = useState<{
     chatId: string;
+    partnerId: string;
     partnerName: string;
     partnerAvatar: string;
   } | null>(null);
@@ -161,10 +162,17 @@ export function ProfileView({ setActiveView, onDirtyChange }: ProfileViewProps) 
       }
       if (!res.ok) throw new Error("Failed to look up chat");
       const data = await res.json();
+
+      const partnerId = trade.user1Id === uid ? trade.user2Id : trade.user1Id;
+
       setHistoryChatView({
         chatId: data.chatId,
+        partnerId,
         partnerName: trade.partnerName || "Trade Partner",
-        partnerAvatar: trade.partnerAvatar || "https://ui-avatars.com/api/?background=e9d5ff&color=7c3aed&name=" + encodeURIComponent(trade.partnerName || "?"),
+        partnerAvatar:
+          trade.partnerAvatar ||
+          "https://ui-avatars.com/api/?background=e9d5ff&color=7c3aed&name=" +
+            encodeURIComponent(trade.partnerName || "?"),
       });
     } catch (error) {
       console.error("Error opening trade chat:", error);
@@ -888,6 +896,7 @@ export function ProfileView({ setActiveView, onDirtyChange }: ProfileViewProps) 
         <ChatWindow
           chatId={historyChatView.chatId}
           matchedWith={{
+            userId: historyChatView.partnerId,
             userName: historyChatView.partnerName,
             userAvatar: historyChatView.partnerAvatar,
           }}

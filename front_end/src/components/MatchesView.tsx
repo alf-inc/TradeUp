@@ -41,7 +41,11 @@ export function MatchesView() {
   const [activeChat, setActiveChat] = useState<{
     chatId: string;
     notificationId: string;
-    matchedWith: any;
+    matchedWith: {
+      userId: string;
+      userName: string;
+      userAvatar?: string;
+    };
     status?: 'accepted' | 'rejected';
     confirmed?: boolean;
   } | null>(() => {
@@ -69,7 +73,11 @@ export function MatchesView() {
     const chat = {
       chatId,
       notificationId: match.id,
-      matchedWith: match.matchedWith,
+      matchedWith: {
+        userId: match.otherUserId,
+        userName: match.matchedWith.userName,
+        userAvatar: match.matchedWith.userAvatar,
+      },
       status: match.status,
       confirmed: match.confirmed,
     };

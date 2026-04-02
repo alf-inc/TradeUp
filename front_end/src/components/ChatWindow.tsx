@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { X, Send, Check, Clock, Ban, ThumbsUp, ThumbsDown } from 'lucide-react';
-import { doc, updateDoc, collection, query, orderBy, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, orderBy, onSnapshot, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase/firebase';
 
 interface Message {
@@ -19,6 +19,7 @@ interface ChatWindowProps {
   chatId: string;
   notificationId?: string;
   matchedWith: {
+    userId: string;
     userName: string;
     userAvatar?: string;
   };
@@ -38,6 +39,9 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
   const [retryCount, setRetryCount] = useState(0);
   const [isConfirming, setIsConfirming] = useState(false);
 
+  const [partnerRating, setPartnerRating] = useState<number | null>(null);
+  const [partnerRatingCount, setPartnerRatingCount] = useState<number>(0);
+
   // Trade confirmation state synced from Firestore chat doc (real-time)
   const [tradeConfirmation, setTradeConfirmation] = useState<TradeConfirmation | null>(null);
 
@@ -52,6 +56,39 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentUserId = auth.currentUser?.uid;
+
+    useEffect(() => {
+    const fetchPartnerRating = async () => {
+      if (!matchedWith.userId) return;
+
+      try {
+        const userRef = doc(db, 'users', matchedWith.userId);
+        const userSnap = await getDoc(userRef);
+
+        if (!userSnap.exists()) {
+          setPartnerRating(null);
+          setPartnerRatingCount(0);
+          return;
+        }
+
+        const userData = userSnap.data();
+        setPartnerRating(
+          typeof userData.average_rating === 'number' ? userData.average_rating : null
+        );
+        setPartnerRatingCount(
+          typeof userData.ratings_received_count === 'number'
+            ? userData.ratings_received_count
+            : 0
+        );
+      } catch (error) {
+        console.error('Error fetching partner rating:', error);
+        setPartnerRating(null);
+        setPartnerRatingCount(0);
+      }
+    };
+
+    fetchPartnerRating();
+  }, [matchedWith.userId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -266,7 +303,17 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
               (e.currentTarget as HTMLImageElement).src = `https://ui-avatars.com/api/?background=e9d5ff&color=7c3aed&name=${encodeURIComponent(matchedWith.userName || '?')}`;
             }}
           />
-          <h2 className="text-base font-bold text-gray-800 truncate">{matchedWith.userName}</h2>
+
+          <div className="min-w-0">
+            <h2 className="text-base font-bold text-gray-800 truncate">
+              {matchedWith.userName}
+            </h2>
+            <p className="text-sm text-gray-500 truncate">
+              {partnerRating !== null && partnerRatingCount > 0
+                ? `⭐ ${partnerRating.toFixed(1)} / 10 (${partnerRatingCount} rating${partnerRatingCount === 1 ? '' : 's'})`
+                : 'No ratings yet'}
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
