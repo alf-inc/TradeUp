@@ -192,12 +192,26 @@ export function ChatWindow({ chatId, notificationId, matchedWith, initialStatus,
     return () => unsub();
   }, [chatId, currentUserId]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || !wsRef.current || !currentUserId) return;
-    if (wsRef.current.readyState !== WebSocket.OPEN) return;
-    wsRef.current.send(JSON.stringify({ senderId: currentUserId, message: inputText.trim() }));
+    if (!inputText.trim() || !currentUserId) return;
+    const text = inputText.trim();
     setInputText('');
+
+    // Try WebSocket first, fall back to REST API
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ senderId: currentUserId, message: text }));
+    } else {
+      try {
+        await fetch(`${API_BASE}/chats/${chatId}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ senderId: currentUserId, message: text }),
+        });
+      } catch (err) {
+        console.error('Failed to send message via REST:', err);
+      }
+    }
   };
 
   // User A clicks "Confirm Trade" — requests confirmation from User B
