@@ -35,6 +35,8 @@ def create_mutual_match_notification(
         "userId": receiver_user_id,
         "type": "MUTUAL_MATCH",
         "read": False,
+        "status": firestore.DELETE_FIELD,
+        "confirmed": firestore.DELETE_FIELD,
         "createdAt": firestore.SERVER_TIMESTAMP,
         "payload": {
             "otherUserId": other_user_id,
