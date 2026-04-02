@@ -55,15 +55,17 @@ def check_match_only(db, liker_user_id: str, liked_item_id: str):
     q2 = db.collection("completed_trades").where(filter=FieldFilter("user2_id", "==", liker_user_id)).stream()
     for snap in list(q1) + list(q2):
         d = snap.to_dict()
-        traded_item_ids.add(d.get("item1_id"))
-        traded_item_ids.add(d.get("item2_id"))
+        if d.get("status") == "confirmed":
+            traded_item_ids.add(d.get("item1_id"))
+            traded_item_ids.add(d.get("item2_id"))
 
     q3 = db.collection("completed_trades").where(filter=FieldFilter("user1_id", "==", owner_user_id)).stream()
     q4 = db.collection("completed_trades").where(filter=FieldFilter("user2_id", "==", owner_user_id)).stream()
     for snap in list(q3) + list(q4):
         d = snap.to_dict()
-        traded_item_ids.add(d.get("item1_id"))
-        traded_item_ids.add(d.get("item2_id"))
+        if d.get("status") == "confirmed":
+            traded_item_ids.add(d.get("item1_id"))
+            traded_item_ids.add(d.get("item2_id"))
 
     # Skip if the liked item itself has been traded
     if liked_item_id in traded_item_ids:
