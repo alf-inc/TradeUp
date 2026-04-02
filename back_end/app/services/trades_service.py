@@ -172,11 +172,26 @@ def reject_trade_service(db, notification_id: str):
     if chat_docs:
         chat_docs[0].reference.delete()
 
-    # Delete any existing completed_trades record for this pair
+    # Delete the deterministic-key record so it won't block a future re-match
     match_key = _build_match_key(user_id, other_user_id, my_item_id, their_item_id)
     trade_ref = db.collection("completed_trades").document(match_key)
     if trade_ref.get().exists:
         trade_ref.delete()
+
+    # Write a new rejected trade record with an auto-generated ID so it
+    # appears in trade history but cannot collide with a future re-match
+    db.collection("completed_trades").add({
+        "trade_id": match_key,
+        "matchKey": match_key,
+        "user1_id": user_id,
+        "user2_id": other_user_id,
+        "item1_id": my_item_id,
+        "item2_id": their_item_id,
+        "user1_rating": None,
+        "user2_rating": None,
+        "status": "rejected",
+        "completedAt": firestore.SERVER_TIMESTAMP,
+    })
 
     return {"rejected": True}
 

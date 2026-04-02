@@ -47,12 +47,21 @@ export default function App() {
   const [pendingNav, setPendingNav] = useState<View | null>(null);
 
   // Called by nav buttons — intercepts if profile edit has unsaved changes
-  const handleNavigate = (view: View) => {
+  const handleNavigate = async (view: View) => {
     if (profileDirty && activeView === 'profile') {
       setPendingNav(view);
       return;
     }
     setActiveView(view);
+
+    // Refresh liked items from Firestore when switching to Listings
+    // so that backend changes (e.g. rejection unliking) are reflected
+    if (view === 'Listings' && userId) {
+      try {
+        const likes = await getLikedItems(userId);
+        setLikedItems(likes);
+      } catch { /* non-critical */ }
+    }
   };
 
   // User chose to discard changes and navigate away
